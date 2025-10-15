@@ -4,7 +4,7 @@ import ReactMarkdown from "react-markdown";
 
 // --- Constantes ---
 const MAX_CACHE_SIZE = 50;
-const VITE_GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY;
+const VITE_GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY; // Conservé pour Whisper
 
 // --- Cache pour le Text-to-Speech (TTS) ---
 const ttsCache = new Map();
@@ -46,18 +46,12 @@ async function generateTTSWithCache(sentence, voice = "fr-FR-DeniseNeural") {
  * Découpe un texte en phrases et les lit une par une, en gérant l'interruption.
  */
 async function speakLongText(text, setIsPlayingTTS, audioRef, stopFlagRef) {
-  // ✅ Étape 1: On réinitialise le drapeau au tout début d'une NOUVELLE lecture.
-  // C'est ce qui garantit que la lecture suivante n'est pas interrompue par erreur.
   stopFlagRef.current = false;
-
   setIsPlayingTTS(true);
   const sentences = text.match(/[^.!?]+[.!?]*/g) || [text];
 
   for (const sentence of sentences) {
-    // ✅ Étape 2: Avant chaque phrase, on vérifie si l'utilisateur a demandé l'arrêt.
-    if (stopFlagRef.current) {
-      break; // Sort de la boucle de lecture
-    }
+    if (stopFlagRef.current) break;
     if (!sentence.trim()) continue;
 
     try {
@@ -65,13 +59,11 @@ async function speakLongText(text, setIsPlayingTTS, audioRef, stopFlagRef) {
       const audio = new Audio(audioUrl);
       audioRef.current = audio;
 
-      // Attend la fin de la lecture de la phrase
       await new Promise((resolve, reject) => {
         audio.onended = resolve;
         audio.onerror = reject;
         audio.play().catch(reject);
 
-        // Cette fonction vérifie en continu si on doit s'arrêter
         const checkForStop = () => {
           if (stopFlagRef.current) {
             audio.pause();
@@ -82,19 +74,16 @@ async function speakLongText(text, setIsPlayingTTS, audioRef, stopFlagRef) {
         };
         checkForStop();
       });
-
     } catch (err) {
       if (err.message !== "Playback stopped by user") {
         console.error("Erreur TTS phrase:", err);
       }
-      break; // Sort de la boucle en cas d'erreur ou d'arrêt
+      break;
     }
   }
-
-  // ✅ Étape 3: Nettoyage final, quoi qu'il arrive (fin normale ou interruption).
   setIsPlayingTTS(false);
   audioRef.current = null;
-  stopFlagRef.current = false; // Sécurité supplémentaire
+  stopFlagRef.current = false;
 }
 
 export default function App() {
@@ -106,12 +95,13 @@ export default function App() {
   const [isRecording, setIsRecording] = useState(false);
   const [isPlayingTTS, setIsPlayingTTS] = useState(false);
   const [isBotLoading, setIsBotLoading] = useState(false);
+  const [selectedImage, setSelectedImage] = useState(null);
 
   // --- Références ---
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
   const audioRef = useRef(null);
-  const stopFlagRef = useRef(false); // Le drapeau pour l'arrêt immédiat
+  const stopFlagRef = useRef(false);
 
   // Ajout d’un message dans l’historique
   const addMessage = useCallback((text, from) => {
@@ -120,55 +110,81 @@ export default function App() {
 
   // Stop TTS
   const stopTTS = useCallback(() => {
-    // Cette fonction ne fait qu'une chose : lever le drapeau d'arrêt.
-    // La boucle de lecture dans speakLongText s'en occupera.
     stopFlagRef.current = true;
   }, []);
+  
+  // Fonction pour uploader et convertir l'image
+  const handleImageUpload = useCallback((e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setSelectedImage(reader.result);
+      addMessage("🖼️ Image sélectionnée. Posez votre question.", "user");
+    };
+    reader.readAsDataURL(file);
+  }, [addMessage]);
+
 
   // --- Effet déclenché quand un user envoie un message ---
   useEffect(() => {
     const lastMessage = messages[messages.length - 1];
-    if (lastMessage?.from === "user") {
+    
+    // Le filtre est conservé pour ne pas appeler l'API sur le message de confirmation
+    if (lastMessage?.from === "user" && lastMessage.text !== "🖼️ Image sélectionnée. Posez votre question.") {
       const callLLM = async () => {
         setIsBotLoading(true);
 
-        const groqMessages = [
-          { role: "system", content: "Tu es un assistant vocal utile, concis et amical." },
-          ...messages.map((m) => ({
-            role: m.from === "user" ? "user" : "assistant",
-            content: m.text,
-          })),
-        ];
-
         try {
-          const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${VITE_GROQ_API_KEY}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              // ✅ Modèle original conservé
-              model: "llama-3.3-70b-versatile",
-              messages: groqMessages,
-            }),
-          });
+          let response;
+          
+          // ✅ LA SOLUTION : On dirige vers la bonne API en fonction de `selectedImage`
+          if (selectedImage) {
+            // 🖼️ Cas n°1: Image + texte -> on appelle Qwen
+            response = await fetch("https://openaiturbo.onrender.com/api/qwen", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                prompt: lastMessage.text,
+                image: selectedImage,
+              }),
+            });
+          } else {
+            // 💬 Cas n°2: Texte seul -> on appelle le chat classique
+            response = await fetch("https://openaiturbo.onrender.com/api/chat", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                messages: [
+                  { role: "system", content: "Tu es un assistant vocal utile, concis et amical." },
+                  ...messages.map((m) => ({
+                    role: m.from === "user" ? "user" : "assistant",
+                    content: m.text,
+                  })),
+                ],
+              }),
+            });
+          }
 
           if (!response.ok) {
-            const errorDetails = await response.json().catch(() => ({}));
-            throw new Error(
-              `Erreur ${response.status}: ${errorDetails.error?.message || "Problème API"}`
-            );
+            throw new Error(`Erreur API (${response.status})`);
           }
 
           const data = await response.json();
+          // Logique unifiée pour extraire la réponse, peu importe la source
           const botText =
-            data.choices?.[0]?.message?.content || "Désolé, une erreur est survenue.";
+            data?.message?.content ||
+            data?.output ||
+            data?.choices?.[0]?.message?.content ||
+            "Désolé, je n’ai pas pu répondre.";
 
           addMessage(botText, "bot");
-
-          // Lancement de la lecture
           await speakLongText(botText, setIsPlayingTTS, audioRef, stopFlagRef);
+
+          // 🧹 On nettoie l'image seulement après une réponse réussie
+          if (selectedImage) {
+            setSelectedImage(null);
+          }
 
         } catch (err) {
           console.error("Erreur dans callLLM:", err);
@@ -180,9 +196,10 @@ export default function App() {
 
       callLLM();
     }
-  }, [messages, addMessage]);
+  }, [messages, addMessage, selectedImage]); // `selectedImage` reste dans les dépendances
 
-  // --- Transcription Audio (STT) ---
+
+  // --- Transcription Audio (STT) avec Groq/Whisper (inchangé) ---
   const handleTranscription = useCallback(
     async (audioBlob) => {
       const formData = new FormData();
@@ -208,7 +225,7 @@ export default function App() {
     [addMessage]
   );
 
-  // --- Micro ---
+  // --- Micro (inchangé) ---
   const handleMicClick = useCallback(async () => {
     stopTTS();
     if (isRecording) {
@@ -240,11 +257,11 @@ export default function App() {
     }
   }, [isRecording, stopTTS, handleTranscription]);
 
-  // --- Envoi texte ---
+  // --- Envoi texte (inchangé) ---
   const handleSend = useCallback(
     (e) => {
       e.preventDefault();
-      stopTTS(); // Arrête toute lecture en cours
+      stopTTS();
       if (!newMessage.trim() || isBotLoading) return;
       addMessage(newMessage, "user");
       setNewMessage("");
@@ -254,15 +271,13 @@ export default function App() {
 
   // Nettoyage audio à la fermeture du composant
   useEffect(() => {
-    return () => {
-      stopTTS();
-    };
+    return () => stopTTS();
   }, [stopTTS]);
 
   return (
     <div className="bg-white text-[#191970] min-h-screen font-[Cinzel] flex flex-col">
       <div className="container mx-auto px-4 pt-6 flex flex-col flex-grow">
-        {/* Header */}
+        {/* Header (inchangé) */}
         <header className="flex justify-between items-center mb-6">
           <h1 className="text-lg font-semibold">Assistant Vocal</h1>
           <div className="flex items-center space-x-2 text-sm">
@@ -271,8 +286,27 @@ export default function App() {
           </div>
         </header>
 
-        {/* Chat */}
+        {/* Chat (inchangé) */}
         <main className="flex-grow overflow-y-auto space-y-4 text-xl pb-4">
+          {selectedImage && (
+            <div className="flex justify-end mb-4">
+              <div className="relative">
+                <img
+                  src={selectedImage}
+                  alt="Image sélectionnée"
+                  className="w-48 h-auto rounded-lg shadow-md border"
+                />
+                 <button 
+                   onClick={() => setSelectedImage(null)} 
+                   className="absolute top-1 right-1 bg-black bg-opacity-50 text-white rounded-full p-1 hover:bg-opacity-75"
+                   title="Annuler la sélection"
+                 >
+                   <X size={16} />
+                 </button>
+              </div>
+            </div>
+          )}
+
           {messages.map((msg, idx) => (
             <div
               key={idx}
@@ -287,7 +321,7 @@ export default function App() {
           ))}
         </main>
 
-        {/* Footer */}
+        {/* Footer (inchangé) */}
         <footer className="sticky bottom-0 py-4 bg-white">
           <form onSubmit={handleSend} className="flex items-center gap-2 mb-4">
             <input
@@ -308,9 +342,17 @@ export default function App() {
           </form>
 
           <div className="flex justify-center items-center space-x-6">
-            <button className="bg-gray-200 w-12 h-12 rounded-full flex items-center justify-center shadow-lg text-[#191970] hover:bg-gray-300 transition-colors">
+            <label className={`bg-gray-200 w-12 h-12 rounded-full flex items-center justify-center shadow-lg text-[#191970] hover:bg-gray-300 transition-colors ${isBotLoading || isRecording ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
               <Plus className="w-6 h-6" />
-            </button>
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleImageUpload}
+                disabled={isBotLoading || isRecording}
+              />
+            </label>
+
             <button
               onClick={handleMicClick}
               className={`w-32 h-20 rounded-full flex items-center justify-center shadow-lg text-white transition-colors ${
