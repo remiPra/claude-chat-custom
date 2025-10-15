@@ -41,6 +41,25 @@ async function generateTTSWithCache(sentence, voice = "fr-FR-DeniseNeural") {
     throw error;
   }
 }
+// 🧹 Nettoie le texte avant passage au TTS
+function cleanForSpeech(text) {
+  return text
+    // Supprime le markdown et symboles
+    .replace(/[*_`#>~\-]+/g, "")
+    // Supprime les emojis et pictogrammes
+    .replace(
+      /([\u2700-\u27BF]|[\uE000-\uF8FF]|[\uD83C-\uDBFF\uDC00-\uDFFF]|[\uFE0F])/g,
+      ""
+    )
+    // Supprime les liens markdown [texte](url)
+    .replace(/\[(.*?)\]\(.*?\)/g, "$1")
+    // Nettoie les symboles décoratifs
+    .replace(/[•·→←↔️◾◽◆◇◉◎○●]/g, "")
+    // Retire les espaces multiples
+    .replace(/\s+/g, " ")
+    // Trim final
+    .trim();
+}
 
 /**
  * Découpe un texte en phrases et les lit une par une, en gérant l'interruption.
@@ -178,8 +197,11 @@ export default function App() {
             data?.choices?.[0]?.message?.content ||
             "Désolé, je n’ai pas pu répondre.";
 
-          addMessage(botText, "bot");
-          await speakLongText(botText, setIsPlayingTTS, audioRef, stopFlagRef);
+// 🧼 Nettoyage du texte avant de le lire
+const cleanText = cleanForSpeech(botText);
+
+addMessage(cleanText, "bot");
+await speakLongText(cleanText, setIsPlayingTTS, audioRef, stopFlagRef);
 
           // 🧹 On nettoie l'image seulement après une réponse réussie
           if (selectedImage) {
