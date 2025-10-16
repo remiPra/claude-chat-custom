@@ -254,7 +254,7 @@ setMessages((prev) => {
     <div className="bg-white text-[#191970] min-h-screen font-[Cinzel] flex flex-col">
       <div className="container mx-auto px-4 pt-6 flex flex-col flex-grow">
         {/* Header */}
-        <header className="flex fixed top-0 left-0 w-full justify-between items-center mb-6">
+        <header className="flex fixed top-0 left-0 w-full p-4 justify-between items-center mb-6">
           <h1 className="text-lg font-semibold">⚡ Assistant Vocal Intelligent (Qwen3-VL)</h1>
           <Link to="/" className="hover:underline">💬 Chat classique</Link>
           <Link to="/stream" className="hover:underline">⚡ Chat stream</Link>
@@ -285,7 +285,7 @@ setMessages((prev) => {
         )}
 
         {/* Chat */}
-        <main className="flex-grow overflow-y-auto space-y-4 text-xl pb-4">
+        <main className="mt-10 flex-grow overflow-y-auto space-y-4 text-xl pb-4">
           {messages.map((msg, idx) => (
             <div
               key={idx}

@@ -313,7 +313,7 @@ await speakLongText(cleanText, setIsPlayingTTS, audioRef, stopFlagRef);
         </header>
 
         {/* Chat (inchangé) */}
-        <main className="flex-grow overflow-y-auto space-y-4 text-xl pb-4">
+        <main className="flex-grow  mt-10 overflow-y-auto space-y-4 text-xl pb-4">
           {selectedImage && (
             <div className="flex justify-end mb-4">
               <div className="relative">
