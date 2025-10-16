@@ -299,7 +299,7 @@ await speakLongText(cleanText, setIsPlayingTTS, audioRef, stopFlagRef);
 
   return (
     <div className="bg-white text-[#191970] min-h-screen font-[Cinzel] flex flex-col">
-      <div className="container mx-auto px-4 pt-6 flex flex-col flex-grow">
+      <div className="container mx-auto p-4 pt-6 flex flex-col flex-grow">
         {/* Header (inchangé) */}
         <header className="w-full px-4 fixed top-0 left-0 flex justify-between items-center mb-6">
           <h1 className="text-lg font-semibold">Assistant Vocal</h1>
