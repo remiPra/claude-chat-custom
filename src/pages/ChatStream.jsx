@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { Mic, X, Send, Plus, Wifi, BatteryFull, SignalHigh } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import { Link } from "react-router-dom";
 
 // --- Constantes ---
 const MAX_CACHE_SIZE = 50;
@@ -255,6 +256,9 @@ setMessages((prev) => {
         {/* Header */}
         <header className="flex justify-between items-center mb-6">
           <h1 className="text-lg font-semibold">⚡ Assistant Vocal Intelligent (Qwen3-VL)</h1>
+          <Link to="/" className="hover:underline">💬 Chat classique</Link>
+          <Link to="/stream" className="hover:underline">⚡ Chat stream</Link>
+
           <div className="flex items-center space-x-2 text-sm">
             <SignalHigh className="w-5 h-5" /> <Wifi className="w-5 h-5" />
             <span>77%</span> <BatteryFull className="w-5 h-5" />

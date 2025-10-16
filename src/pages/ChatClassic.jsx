@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { Mic, Wifi, BatteryFull, SignalHigh, Plus, X, Send } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import { Link } from "react-router-dom";
 
 // --- Constantes ---
 const MAX_CACHE_SIZE = 50;
@@ -303,6 +304,9 @@ await speakLongText(cleanText, setIsPlayingTTS, audioRef, stopFlagRef);
         <header className="w-full top-0 left-0 flex justify-between items-center mb-6">
           <h1 className="text-lg font-semibold">Assistant Vocal</h1>
           <div className="flex items-center space-x-2 text-sm">
+          <Link to="/" className="hover:underline">💬 Chat classique</Link>
+          <Link to="/stream" className="hover:underline">⚡ Chat stream</Link>
+
             <SignalHigh className="w-5 h-5" /> <Wifi className="w-5 h-5" />
             <span>77%</span> <BatteryFull className="w-5 h-5" />
           </div>
