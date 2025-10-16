@@ -301,7 +301,7 @@ await speakLongText(cleanText, setIsPlayingTTS, audioRef, stopFlagRef);
     <div className="bg-white text-[#191970] min-h-screen font-[Cinzel] flex flex-col">
       <div className="container mx-auto px-4 pt-6 flex flex-col flex-grow">
         {/* Header (inchangé) */}
-        <header className="w-full top-0 left-0 flex justify-between items-center mb-6">
+        <header className="w-full fixed top-0 left-0 flex justify-between items-center mb-6">
           <h1 className="text-lg font-semibold">Assistant Vocal</h1>
           <div className="flex items-center space-x-2 text-sm">
           <Link to="/" className="hover:underline">💬 Chat classique</Link>
