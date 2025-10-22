@@ -262,18 +262,26 @@ export default function ChatStream() {
   },
   [messages, addMessage]
 );
+
+
 const handleSend = useCallback(
   (e) => {
     e.preventDefault();
-    if (!newMessage.trim() && !selectedImage) return; // on évite les messages vides
+    if (!newMessage.trim() || isBotLoading) return;
 
-    addMessage(newMessage || "🖼️ Image envoyée", "user");
-    handleStreamCall(newMessage || "Analyse cette image", selectedImage);
+    // 🔍 Détection automatique si l'utilisateur colle une image base64
+    if (newMessage.startsWith("data:image")) {
+      setSelectedImage(newMessage);
+      addMessage("🖼️ Image détectée, pose ta question.", "user");
+      setNewMessage("");
+      return;
+    }
 
+    addMessage(newMessage, "user");
+    handleStreamCall(newMessage);
     setNewMessage("");
-    setSelectedImage(null); // reset après envoi
   },
-  [newMessage, selectedImage, isBotLoading, addMessage, handleStreamCall]
+  [newMessage, isBotLoading, addMessage, handleStreamCall]
 );
 
 
