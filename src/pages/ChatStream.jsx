@@ -68,6 +68,8 @@ async function generateTTSWithCache(sentence, voice = "fr-FR-DeniseNeural") {
   }
 }
 
+
+
 /**
  * Joue un texte complet une fois le flux terminé
  */
@@ -263,60 +265,39 @@ export default function ChatStream() {
   [messages, addMessage]
 );
 
+  // 💬 Envoi clavier ou image
+  const handleSend = useCallback(
+    (e) => {
+      e.preventDefault();
+      if (!newMessage.trim() && !selectedImage) return;
+      if (isBotLoading) return;
 
-const handleSend = useCallback(
-  (e) => {
-    e.preventDefault();
-    if (!newMessage.trim() || isBotLoading) return;
+      // Si image présente → on l’envoie avec la question (ou sans texte)
+      if (selectedImage) {
+        addMessage("🖼️ Image envoyée, traitement en cours...", "user");
+        handleStreamCall(newMessage || "Analyse cette image", selectedImage);
+        setNewMessage("");
+        setSelectedImage(null);
+        return;
+      }
 
-    // 🔍 Détection automatique si l'utilisateur colle une image base64
-    if (newMessage.startsWith("data:image")) {
-      setSelectedImage(newMessage);
-      addMessage("🖼️ Image détectée, pose ta question.", "user");
+      // Sinon, simple message texte
+      addMessage(newMessage, "user");
+      handleStreamCall(newMessage);
       setNewMessage("");
-      return;
-    }
+    },
+    [newMessage, isBotLoading, addMessage, handleStreamCall, selectedImage]
+  );
+  useEffect(() => {
+    if (selectedImage) console.log("🖼️ Image prête à l’envoi :", selectedImage.substring(0, 50) + "...");
+  }, [selectedImage]);
+  
 
-    addMessage(newMessage, "user");
-    handleStreamCall(newMessage);
-    setNewMessage("");
-  },
-  [newMessage, isBotLoading, addMessage, handleStreamCall]
-);
 
 
   useEffect(() => {
     console.log("💬 État complet des messages:", messages);
   }, [messages]);
-
-  // 🎨 Détection du collage d'une image (Ctrl + V)
-useEffect(() => {
-  const handlePaste = (e) => {
-    // Vérifie s'il y a des fichiers dans le presse-papier
-    const items = e.clipboardData?.items;
-    if (!items) return;
-
-    for (const item of items) {
-      if (item.type.startsWith("image/")) {
-        const file = item.getAsFile();
-        const reader = new FileReader();
-
-        reader.onload = () => {
-          setSelectedImage(reader.result); // base64 complet
-          addMessage("🖼️ Image collée, pose ta question.", "user");
-        };
-
-        reader.readAsDataURL(file);
-        e.preventDefault();
-        break;
-      }
-    }
-  };
-
-  window.addEventListener("paste", handlePaste);
-  return () => window.removeEventListener("paste", handlePaste);
-}, [addMessage]);
-
   
 
 const stopTTS = useCallback(() => {
