@@ -1,9 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { Mic, X, Send, Plus, Wifi, BatteryFull, SignalHigh } from "lucide-react";
 import ReactMarkdown from "react-markdown";
-// import { Link } from "react-router-dom";
-import { Link, useLocation } from "react-router-dom";
-
+import { Link } from "react-router-dom";
 
 // --- Constantes ---
 const MAX_CACHE_SIZE = 50;
@@ -33,11 +31,6 @@ function cleanForSpeech(text) {
  * Génère ou récupère l’audio TTS depuis le cache
  */
 async function generateTTSWithCache(sentence, voice = "fr-FR-DeniseNeural") {
-
-
-
-  
-
   const cacheKey = `${voice}_${sentence}`;
   if (ttsCache.has(cacheKey)) return ttsCache.get(cacheKey);
 
@@ -71,7 +64,7 @@ async function generateTTSWithCache(sentence, voice = "fr-FR-DeniseNeural") {
 /**
  * Joue un texte complet une fois le flux terminé
  */
-async function speakText(text, stopFlagRef, currentAudioRef) {
+async function speakText(text, stopFlagRef) {
   if (stopFlagRef.current) return;
   const clean = cleanForSpeech(text);
   if (!clean) return;
@@ -79,33 +72,9 @@ async function speakText(text, stopFlagRef, currentAudioRef) {
   const audioUrl = await generateTTSWithCache(clean);
   if (!audioUrl) return;
 
-  // 🔇 Stoppe tout son en cours
-  if (currentAudioRef.current) {
-    currentAudioRef.current.pause();
-    currentAudioRef.current.currentTime = 0;
-    currentAudioRef.current = null;
-  }
-
   const audio = new Audio(audioUrl);
-  currentAudioRef.current = audio;
-
-  // Si stopFlag change pendant la lecture → stoppe aussi
-  audio.addEventListener("play", () => {
-    const checkStop = () => {
-      if (stopFlagRef.current && !audio.paused) {
-        audio.pause();
-        audio.currentTime = 0;
-        currentAudioRef.current = null;
-      } else if (!audio.paused) {
-        requestAnimationFrame(checkStop);
-      }
-    };
-    requestAnimationFrame(checkStop);
-  });
-
   await audio.play().catch(() => {});
 }
-
 
 export default function ChatStream() {
   const [messages, setMessages] = useState([
@@ -116,8 +85,6 @@ export default function ChatStream() {
   const [isRecording, setIsRecording] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
   const stopFlagRef = useRef(false);
-  const currentAudioRef = useRef(null);
-
 
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
@@ -126,10 +93,6 @@ export default function ChatStream() {
     setMessages((prev) => [...prev, { from, text }]);
   }, []);
 
-
-
-
-  
   // 🎙️ Transcription audio avec Whisper (Groq)
   const handleTranscription = useCallback(async (audioBlob) => {
     const formData = new FormData();
@@ -155,8 +118,6 @@ export default function ChatStream() {
 
   // 🎙️ Micro push-to-talk
   const handleMicClick = useCallback(async () => {
-      stopTTS(); // 🔇 stoppe toute voix en cours avant d’enregistrer
-
     if (isRecording) {
       mediaRecorderRef.current?.stop();
     } else {
@@ -200,171 +161,109 @@ export default function ChatStream() {
 
   // 🧠 Fonction universelle pour appeler Qwen avec mémoire
   const handleStreamCall = useCallback(
-  async (promptText, imageData = null) => {
-    if (!promptText?.trim()) return;
+    async (promptText) => {
+      if (!promptText?.trim()) return;
 
-    setIsBotLoading(true);
-    stopFlagRef.current = false;
+      setIsBotLoading(true);
+      stopFlagRef.current = false;
 
-    try {
-      // 🧠 Historique de chat pour la mémoire du modèle
-      const history = messages.map((m) => ({
-        role: m.from === "user" ? "user" : "assistant",
-        content: m.text,
-      }));
-      history.push({ role: "user", content: promptText });
+      try {
+        // 🧩 Historique complet pour la mémoire de Qwen
+        const history = messages.map((m) => ({
+          role: m.from === "user" ? "user" : "assistant",
+          content: m.text,
+        }));
+        history.push({ role: "user", content: promptText });
 
-      // 📤 Données envoyées à ton serveur Node
-      const bodyData = imageData
-        ? { messages: history, image: imageData } // 👈 on passe l’image ici
-        : { messages: history };
+        // Prépare le corps de la requête
+        const bodyData = selectedImage
+          ? { messages: history, image: selectedImage }
+          : { messages: history };
 
-      const response = await fetch(`${API_URL}/api/qwen-stream`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(bodyData),
-      });
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder("utf-8");
-      let fullText = "";
-      let botIndex;
-      setMessages((prev) => {
-        botIndex = prev.length;
-        return [...prev, { from: "bot", text: "" }];
-      });
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        const chunk = decoder.decode(value, { stream: true });
-        if (!chunk.trim()) continue;
-
-        fullText += chunk;
-
-        setMessages((prev) => {
-          const updated = [...prev];
-          if (updated[botIndex]) {
-            updated[botIndex] = { from: "bot", text: fullText };
-          }
-          return updated;
+        const response = await fetch(`${API_URL}/api/qwen-stream`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(bodyData),
         });
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder("utf-8");
+        let fullText = "";
+        let botIndex;
+setMessages((prev) => {
+  botIndex = prev.length;
+  return [...prev, { from: "bot", text: "" }];
+});
+
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const chunk = decoder.decode(value, { stream: true });
+          if (!chunk.trim()) continue;
+
+          fullText += chunk;
+
+          // 💬 Mise à jour progressive du texte
+          setMessages((prev) => {
+            const updated = [...prev];
+            if (updated[botIndex]) {
+                updated[botIndex] = { from: "bot", text: fullText };
+              }
+            return updated;
+          });
+        }
+
+        // 🔊 Lecture TTS après le flux complet
+        if (fullText.trim()) await speakText(fullText, stopFlagRef);
+
+        setSelectedImage(null);
+      } catch (err) {
+        console.error("Erreur stream:", err);
+        addMessage(`❌ ${err.message}`, "bot");
+      } finally {
+        setIsBotLoading(false);
       }
+    },
+    [messages, addMessage, selectedImage]
+  );
 
-      // 🔊 Lecture audio après réponse complète
-      if (fullText.trim()) await speakText(fullText, stopFlagRef, currentAudioRef);
-    } catch (err) {
-      console.error("Erreur stream:", err);
-      addMessage(`❌ ${err.message}`, "bot");
-    } finally {
-      setIsBotLoading(false);
-    }
-  },
-  [messages, addMessage]
-);
-const handleSend = useCallback(
-  (e) => {
-    e.preventDefault();
-    if (!newMessage.trim() && !selectedImage) return; // on évite les messages vides
-
-    addMessage(newMessage || "🖼️ Image envoyée", "user");
-    handleStreamCall(newMessage || "Analyse cette image", selectedImage);
-
-    setNewMessage("");
-    setSelectedImage(null); // reset après envoi
-  },
-  [newMessage, selectedImage, isBotLoading, addMessage, handleStreamCall]
-);
-
+  // 💬 Envoi clavier
+  const handleSend = useCallback(
+    (e) => {
+      e.preventDefault();
+      if (!newMessage.trim() || isBotLoading) return;
+      addMessage(newMessage, "user");
+      handleStreamCall(newMessage);
+      setNewMessage("");
+    },
+    [newMessage, isBotLoading, addMessage, handleStreamCall]
+  );
 
   useEffect(() => {
     console.log("💬 État complet des messages:", messages);
   }, [messages]);
   
 
-const stopTTS = useCallback(() => {
-  stopFlagRef.current = true;
-  if (currentAudioRef.current) {
-    currentAudioRef.current.pause();
-    currentAudioRef.current.currentTime = 0;
-    currentAudioRef.current = null;
-  }
-}, []);
 
-const handlePasteInInput = useCallback((e) => {
-  const items = e.clipboardData?.items;
-  if (!items) return;
-
-  // Vérifie si une image est collée
-  for (const item of items) {
-    if (item.type.indexOf("image") !== -1) {
-      e.preventDefault(); // empêche le collage brut d’image dans le champ
-      const blob = item.getAsFile();
-      const reader = new FileReader();
-
-      reader.onload = () => {
-        const imageData = reader.result;
-        setSelectedImage(imageData);
-      };
-
-      reader.readAsDataURL(blob);
-      return;
-    }
-  }
-  // sinon, on laisse coller le texte par défaut
-}, []);
+  const stopTTS = useCallback(() => {
+    stopFlagRef.current = true;
+  }, []);
 
   return (
     <div className="bg-white text-[#191970] min-h-screen font-[Cinzel] flex flex-col">
       <div className="container mx-auto px-4 pt-6 flex flex-col flex-grow">
         {/* Header */}
-      <header className="fixed top-0 left-0 w-full bg-white border-b shadow-sm z-50">
-  <div className="container mx-auto px-4 py-3 flex justify-between items-center">
-    <h1 className="text-lg font-semibold text-[#191970]">Assistant Vocal Intelligent</h1>
+        <header className="flex fixed top-0 left-0 w-full p-4 justify-between items-center mb-6">
+          <h1 className="text-lg font-semibold">⚡ Assistant Vocal Intelligent (Qwen3-VL)</h1>
+          <Link to="/" className="hover:underline">💬 Chat classique</Link>
+          <Link to="/stream" className="hover:underline">⚡ Chat stream</Link>
 
-    <nav className="flex items-center space-x-2 bg-gray-100 p-1 rounded-full shadow-inner">
-      <Link
-        to="/"
-        className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
-          location.pathname === "/"
-            ? "bg-[#191970] text-white shadow-md"
-            : "text-[#191970] hover:bg-white hover:shadow-sm"
-        }`}
-      >
-        💬 Chat
-      </Link>
-
-      <Link
-        to="/stream"
-        className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
-          location.pathname === "/stream"
-            ? "bg-[#191970] text-white shadow-md"
-            : "text-[#191970] hover:bg-white hover:shadow-sm"
-        }`}
-      >
-        ⚡ Stream
-      </Link>
-
-      <Link
-        to="/voice"
-        className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
-          location.pathname === "/voice"
-            ? "bg-[#191970] text-white shadow-md"
-            : "text-[#191970] hover:bg-white hover:shadow-sm"
-        }`}
-      >
-        🎙️ Vocal
-      </Link>
-    </nav>
-
-    <div className="hidden sm:flex items-center space-x-2 text-sm text-[#191970]">
-      <SignalHigh className="w-4 h-4" />
-      <Wifi className="w-4 h-4" />
-      <span>77%</span>
-      <BatteryFull className="w-4 h-4" />
-    </div>
-  </div>
-</header>
+          <div className="flex items-center space-x-2 text-sm">
+            <SignalHigh className="w-5 h-5" /> <Wifi className="w-5 h-5" />
+            <span>77%</span> <BatteryFull className="w-5 h-5" />
+          </div>
+        </header>
 
         {/* Image sélectionnée */}
         {selectedImage && (
@@ -403,32 +302,11 @@ const handlePasteInInput = useCallback((e) => {
 
         {/* Footer */}
         <footer className="sticky bottom-0 py-4 bg-white">
-          {selectedImage && (
-  <div className="mb-4 flex justify-center">
-    <div className="relative inline-block">
-      <img
-        src={selectedImage}
-        alt="Prévisualisation"
-        className="w-40 h-auto rounded-xl border shadow-md"
-      />
-      <button
-        onClick={() => setSelectedImage(null)}
-        className="absolute top-1 right-1 bg-black bg-opacity-60 text-white rounded-full p-1 hover:bg-opacity-80"
-        title="Supprimer l’image"
-      >
-        <X size={14} />
-      </button>
-    </div>
-  </div>
-)}
-
           <form onSubmit={handleSend} className="flex items-center gap-2 mb-4">
             <input
               type="text"
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
-                onPaste={handlePasteInInput}   // 👈 ici
-
               placeholder="Parle ou écris un message..."
               className="flex-grow border border-gray-400 rounded-lg px-3 py-2 bg-white text-[#191970] focus:outline-none focus:ring-2 focus:ring-[#191970]"
               disabled={isBotLoading || isRecording}
