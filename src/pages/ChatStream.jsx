@@ -288,6 +288,35 @@ const handleSend = useCallback(
   useEffect(() => {
     console.log("💬 État complet des messages:", messages);
   }, [messages]);
+
+  // 🎨 Détection du collage d'une image (Ctrl + V)
+useEffect(() => {
+  const handlePaste = (e) => {
+    // Vérifie s'il y a des fichiers dans le presse-papier
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    for (const item of items) {
+      if (item.type.startsWith("image/")) {
+        const file = item.getAsFile();
+        const reader = new FileReader();
+
+        reader.onload = () => {
+          setSelectedImage(reader.result); // base64 complet
+          addMessage("🖼️ Image collée, pose ta question.", "user");
+        };
+
+        reader.readAsDataURL(file);
+        e.preventDefault();
+        break;
+      }
+    }
+  };
+
+  window.addEventListener("paste", handlePaste);
+  return () => window.removeEventListener("paste", handlePaste);
+}, [addMessage]);
+
   
 
 const stopTTS = useCallback(() => {
