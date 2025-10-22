@@ -1,6 +1,8 @@
 import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
 import ChatClassic from "./pages/ChatClassic";
 import ChatStream from "./pages/ChatStream";
+import GroqVisionTest from "./pages/Chatgroq";
+import ChatGroq from "./pages/ChatGroq";
 
 export default function App() {
   return (
@@ -11,6 +13,9 @@ export default function App() {
           <Routes>
             <Route path="/" element={<ChatClassic />} />
             <Route path="/stream" element={<ChatStream />} />
+            <Route path="/test" element={<GroqVisionTest />} />
+            <Route path="/voice" element={<ChatGroq />} />
+
           </Routes>
         </main>
       </div>
