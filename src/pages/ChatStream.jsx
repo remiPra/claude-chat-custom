@@ -117,6 +117,8 @@ export default function ChatStream() {
   const [isBotLoading, setIsBotLoading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
+  const [audioUnlocked, setAudioUnlocked] = useState(false);
+
   const stopFlagRef = useRef(false);
   const currentAudioRef = useRef(null);
 
@@ -292,16 +294,6 @@ export default function ChatStream() {
     if (selectedImage) console.log("🖼️ Image prête à l’envoi :", selectedImage.substring(0, 50) + "...");
   }, [selectedImage]);
   
-  useEffect(() => {
-    const unlockAudio = () => {
-      const silentAudio = new Audio();
-      silentAudio.src = "data:audio/mp3;base64,//uQx...";
-      silentAudio.play().catch(() => {});
-      document.removeEventListener("click", unlockAudio);
-    };
-    document.addEventListener("click", unlockAudio);
-    return () => document.removeEventListener("click", unlockAudio);
-  }, []);
   
 
 
@@ -393,6 +385,24 @@ const handlePasteInInput = useCallback((e) => {
     </div>
   </div>
 </header>
+{!audioUnlocked && (
+  <div className="fixed inset-0 bg-white flex flex-col items-center justify-center z-50">
+    <p className="text-lg text-[#191970] mb-4 text-center">
+      🔊 Active le son pour entendre la voix de l’assistant
+    </p>
+    <button
+      onClick={() => {
+        const audio = new Audio();
+        audio.src = "data:audio/mp3;base64,//uQx...";
+        audio.play().catch(() => {});
+        setAudioUnlocked(true);
+      }}
+      className="px-6 py-3 bg-[#191970] text-white rounded-full shadow-lg hover:bg-blue-900"
+    >
+      Activer le son
+    </button>
+  </div>
+)}
 
         {/* Image sélectionnée */}
         {selectedImage && (
