@@ -114,6 +114,10 @@ export default function ChatStreamId() {
   const { conversationId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+    // --- tout en haut de ton composant ---
+const chatContainerRef = useRef(null);
+const chatEndRef = useRef(null);
+const [isUserNearBottom, setIsUserNearBottom] = useState(true);
 
   const [messages, setMessages] = useState([
     { from: "bot", text: "Bonjour 👋 Je suis la version streamée de ton assistant intelligent." },
@@ -396,6 +400,36 @@ export default function ChatStreamId() {
     [conversationId, messages, addMessage, selectedImage]
   );
 
+
+  // 📏 Vérifie si l'utilisateur est proche du bas
+const handleScroll = useCallback(() => {
+    const container = chatContainerRef.current;
+    if (!container) return;
+  
+    const distanceFromBottom =
+      container.scrollHeight - container.scrollTop - container.clientHeight;
+  
+    // Si l'utilisateur est à moins de 150px du bas, on considère qu'il "suit" la conversation
+    setIsUserNearBottom(distanceFromBottom < 150);
+  }, []);
+  useEffect(() => {
+    const container = chatContainerRef.current;
+    if (!container) return;
+  
+    container.addEventListener("scroll", handleScroll);
+    return () => container.removeEventListener("scroll", handleScroll);
+  }, [handleScroll]);
+  
+  // Quand un nouveau message arrive…
+  useEffect(() => {
+    if (isUserNearBottom) {
+      chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages, isUserNearBottom]);
+    
+
+
+
   const handleSend = useCallback(
     (e) => {
       e.preventDefault();
@@ -536,7 +570,7 @@ export default function ChatStreamId() {
             </div>
           </aside>
 
-          {/* 🧠 Zone du chat principal */}
+          {/* 🧠 Zone du chat  */}
           <section className="flex-1 flex flex-col bg-white p-6 overflow-y-auto">
             <main className="flex-grow overflow-y-auto space-y-4 text-lg">
               {messages.map((msg, idx) => (
@@ -551,6 +585,8 @@ export default function ChatStreamId() {
                   <ReactMarkdown>{msg.text}</ReactMarkdown>
                 </div>
               ))}
+                <div ref={chatEndRef} />
+
             </main>
           </section>
         </div>
