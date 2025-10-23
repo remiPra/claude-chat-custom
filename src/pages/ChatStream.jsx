@@ -117,10 +117,11 @@ export default function ChatStream() {
   const [isBotLoading, setIsBotLoading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
-  const [audioUnlocked, setAudioUnlocked] = useState(false);
 
   const stopFlagRef = useRef(false);
   const currentAudioRef = useRef(null);
+  const [audioUnlocked, setAudioUnlocked] = useState(false);
+const audioContextRef = useRef(null);
 
 
   const mediaRecorderRef = useRef(null);
@@ -130,7 +131,31 @@ export default function ChatStream() {
     setMessages((prev) => [...prev, { from, text }]);
   }, []);
 
-
+  const handleUnlockAudio = useCallback(() => {
+    try {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContext) {
+        alert("Ton navigateur ne supporte pas Web Audio API.");
+        return;
+      }
+  
+      // Crée un contexte audio et joue un son vide
+      const ctx = new AudioContext();
+      const buffer = ctx.createBuffer(1, 1, 22050);
+      const src = ctx.createBufferSource();
+      src.buffer = buffer;
+      src.connect(ctx.destination);
+      src.start(0);
+      ctx.resume();
+  
+      // Sauvegarde le contexte et active le son
+      audioContextRef.current = ctx;
+      setAudioUnlocked(true);
+      console.log("🔊 Audio déverrouillé sur iOS ✅");
+    } catch (err) {
+      console.error("❌ Erreur lors du déverrouillage audio:", err);
+    }
+  }, []);
 
 
   
@@ -391,18 +416,14 @@ const handlePasteInInput = useCallback((e) => {
       🔊 Active le son pour entendre la voix de l’assistant
     </p>
     <button
-      onClick={() => {
-        const audio = new Audio();
-        audio.src = "data:audio/mp3;base64,//uQx...";
-        audio.play().catch(() => {});
-        setAudioUnlocked(true);
-      }}
-      className="px-6 py-3 bg-[#191970] text-white rounded-full shadow-lg hover:bg-blue-900"
+      onClick={handleUnlockAudio}
+      className="px-6 py-3 bg-[#191970] text-white rounded-full shadow-lg hover:bg-blue-900 transition-transform hover:scale-105"
     >
       Activer le son
     </button>
   </div>
 )}
+
 
         {/* Image sélectionnée */}
         {selectedImage && (
