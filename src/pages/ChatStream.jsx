@@ -3,6 +3,20 @@ import { Mic, X, Send, Plus, Wifi, BatteryFull, SignalHigh } from "lucide-react"
 import ReactMarkdown from "react-markdown";
 // import { Link } from "react-router-dom";
 import { Link, useLocation } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+
+import { db } from "../firebase";
+import {
+  collection,
+  addDoc,
+  getDocs,
+  query,
+  orderBy,
+  serverTimestamp,
+  doc,
+  setDoc,
+} from "firebase/firestore";
+
 
 
 // --- Constantes ---
@@ -117,7 +131,9 @@ export default function ChatStream() {
   const [isBotLoading, setIsBotLoading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
-
+  const [conversations, setConversations] = useState([]); // liste à gauche
+  const [currentConversationId, setCurrentConversationId] = useState(null);
+  
   const stopFlagRef = useRef(false);
   const currentAudioRef = useRef(null);
   const [audioUnlocked, setAudioUnlocked] = useState(false);
@@ -157,7 +173,101 @@ const audioContextRef = useRef(null);
     }
   }, []);
 
+//   // 🧠 Correction : exécution unique
+// useEffect(() => {
+//   if (!currentConversationId) {
+//     startNewConversation();
+//   }
+//   // ⛔ on ne met PAS conversations dans les dépendances
+//   // eslint-disable-next-line react-hooks/exhaustive-deps
+// }, []);
 
+
+
+async function saveMessage(sender, text) {
+  try {
+    let convId = currentConversationIdRef.current;
+
+    // 🚀 Si aucune conversation active, on en crée une maintenant
+    if (!convId) {
+      const convRef = doc(collection(db, "conversations"));
+      await setDoc(convRef, {
+        title: text.slice(0, 40) || "Nouvelle conversation",
+        createdAt: serverTimestamp(),
+      });
+      convId = convRef.id;
+      setCurrentConversationId(convId);
+      currentConversationIdRef.current = convId;
+      await loadConversations();
+    }
+
+    // 🕐 Si le bot écrit juste après la création, on attend que convId soit dispo
+    if (!convId) convId = await waitForConvId(currentConversationIdRef);
+
+    // 💾 On enregistre le message
+    await addDoc(collection(db, "conversations", convId, "messages"), {
+      from: sender,
+      text,
+      timestamp: serverTimestamp(),
+    });
+  } catch (error) {
+    console.error("Erreur Firestore :", error);
+  }
+}
+
+
+  async function updateConversationTitle(conversationId, title) {
+    try {
+      const convRef = doc(db, "conversations", conversationId);
+      await setDoc(
+        convRef,
+        { title },
+        { merge: true } // 👈 évite d’écraser les autres champs
+      );
+    } catch (error) {
+      console.error("Erreur mise à jour du titre :", error);
+    }
+  }
+  
+
+
+  async function loadMessages(conversationId) {
+    const q = query(
+      collection(db, "conversations", conversationId, "messages"),
+      orderBy("timestamp")
+    );
+    const snapshot = await getDocs(q);
+    const loadedMessages = snapshot.docs.map((doc) => doc.data());
+    setMessages(loadedMessages);
+  }
+
+  async function loadConversations() {
+    const q = query(collection(db, "conversations"), orderBy("createdAt", "desc"));
+    const snapshot = await getDocs(q);
+    const convs = snapshot.docs
+      .map((doc) => ({ id: doc.id, ...doc.data() }))
+      .filter((c) => c.title && c.title.trim() !== "Salut 😊 ! Prêt à commencer une nouvelle conversation ?");
+    setConversations(convs);
+  }
+  function waitForConvId(ref, maxTries = 10) {
+    return new Promise((resolve, reject) => {
+      let tries = 0;
+      const check = () => {
+        if (ref.current) return resolve(ref.current);
+        tries++;
+        if (tries > maxTries) return reject("Timeout convId");
+        setTimeout(check, 100);
+      };
+      check();
+    });
+  }
+  const currentConversationIdRef = useRef(null);
+    
+  
+  useEffect(() => {
+    loadConversations();
+  }, []);
+          
   
   // 🎙️ Transcription audio avec Whisper (Groq)
   const handleTranscription = useCallback(async (audioBlob) => {
@@ -280,8 +390,14 @@ const audioContextRef = useRef(null);
         });
       }
 
-      // 🔊 Lecture audio après réponse complète
-      if (fullText.trim()) await speakText(fullText, stopFlagRef, currentAudioRef);
+     
+      if (fullText.trim()) {
+        await saveMessage("bot", fullText);
+        await speakText(fullText, stopFlagRef, currentAudioRef);
+      }
+      
+
+
     } catch (err) {
       console.error("Erreur stream:", err);
       addMessage(`❌ ${err.message}`, "bot");
@@ -292,9 +408,46 @@ const audioContextRef = useRef(null);
   [messages, addMessage]
 );
 
+
+useEffect(() => {
+  if (currentConversationId) {
+    loadMessages(currentConversationId);
+  }
+}, [currentConversationId]);
+
+
+const navigate = useNavigate();
+
+async function startNewConversation() {
+  try {
+    const convRef = doc(collection(db, "conversations"));
+    await setDoc(convRef, {
+      title: "Nouvelle conversation",
+      createdAt: serverTimestamp(),
+    });
+
+    console.log("✅ Nouvelle conversation créée :", convRef.id);
+
+    // Recharge la liste de conversations
+    await loadConversations();
+
+    // 🚀 Redirige vers la nouvelle conversation
+    navigate(`/stream/${convRef.id}`);
+  } catch (error) {
+    console.error("Erreur création conversation :", error);
+  }
+}
+
+
+useEffect(() => {
+  console.log("🌀 useEffect déclenché : currentConversationId=", currentConversationId);
+}, [currentConversationId]);
+
+
+
   // 💬 Envoi clavier ou image
-  const handleSend = useCallback(
-    (e) => {
+  const handleSend =   useCallback(
+    async(e) => {
       e.preventDefault();
       if (!newMessage.trim() && !selectedImage) return;
       if (isBotLoading) return;
@@ -302,6 +455,8 @@ const audioContextRef = useRef(null);
       // Si image présente → on l’envoie avec la question (ou sans texte)
       if (selectedImage) {
         addMessage("🖼️ Image envoyée, traitement en cours...", "user");
+        await saveMessage("user", newMessage || "Image envoyée");
+
         handleStreamCall(newMessage || "Analyse cette image", selectedImage);
         setNewMessage("");
         setSelectedImage(null);
@@ -310,6 +465,18 @@ const audioContextRef = useRef(null);
 
       // Sinon, simple message texte
       addMessage(newMessage, "user");
+      saveMessage("user", newMessage);
+      // 📝 Met à jour le titre si c'est encore "Nouvelle conversation"
+if (conversations.length > 0 && currentConversationId) {
+  const conv = conversations.find(c => c.id === currentConversationId);
+  if (conv && conv.title === "Nouvelle conversation") {
+    updateConversationTitle(currentConversationId, newMessage.slice(0, 40));
+    // Recharge la liste pour voir le titre actualisé
+    loadConversations();
+  }
+}
+
+
       handleStreamCall(newMessage);
       setNewMessage("");
     },
@@ -410,6 +577,50 @@ const handlePasteInInput = useCallback((e) => {
     </div>
   </div>
 </header>
+{/* 💬 Contenu principal : Sidebar + Chat */}
+<div className="flex h-[calc(100vh-60px)] mt-[60px] ml-64">
+
+  {/* 🧭 Sidebar gauche */}
+  <aside className="hidden md:flex fixed top-[60px] left-0 w-64 h-[calc(100vh-60px)] bg-gray-50 border-r border-gray-200 p-4 flex-col">
+
+  <button
+  onClick={() => startNewConversation()}  // 👈 ici
+  className="mb-4 bg-blue-500 text-white py-2 rounded-lg shadow hover:bg-blue-600 transition"
+>
+  + Nouvelle conversation
+</button>
+
+
+    <div className="overflow-y-auto flex-1">
+      {conversations.map((conv) => (
+        <Link to={`/stream/${conv.id}`}>
+        <p>{conv.title}</p>
+      </Link>
+      ))}
+    </div>
+  </aside>
+
+  {/* 🧠 Zone du chat principal */}
+  <section className="flex-1 flex flex-col bg-white p-6 overflow-y-auto">
+    <main className="flex-grow overflow-y-auto space-y-4 text-lg">
+      {messages.map((msg, idx) => (
+        <div
+          key={idx}
+          className={`p-4 rounded-xl max-w-[85%] border shadow-sm ${
+            msg.from === "user"
+              ? "ml-auto bg-[#191970] text-white"
+              : "mr-auto bg-gray-100 text-[#191970]"
+          }`}
+        >
+          <ReactMarkdown>{msg.text}</ReactMarkdown>
+        </div>
+      ))}
+    </main>
+  </section>
+</div>
+
+
+
 {!audioUnlocked && (
   <div className="fixed inset-0 bg-white flex flex-col items-center justify-center z-50">
     <p className="text-lg text-[#191970] mb-4 text-center">
@@ -444,21 +655,6 @@ const handlePasteInInput = useCallback((e) => {
           </div>
         )}
 
-        {/* Chat */}
-        <main className="mt-10 flex-grow overflow-y-auto space-y-4 text-xl pb-4">
-          {messages.map((msg, idx) => (
-            <div
-              key={idx}
-              className={`p-4 rounded-xl max-w-[85%] border shadow-sm ${
-                msg.from === "user"
-                  ? "ml-auto bg-[#191970] text-white"
-                  : "mr-auto bg-gray-100 text-[#191970]"
-              }`}
-            >
-              <ReactMarkdown>{msg.text}</ReactMarkdown>
-            </div>
-          ))}
-        </main>
 
         {/* Footer */}
         <footer className="sticky bottom-0 py-4 bg-white">
@@ -524,6 +720,8 @@ const handlePasteInInput = useCallback((e) => {
             </button>
           </div>
         </footer>
+
+        
       </div>
     </div>
   );
