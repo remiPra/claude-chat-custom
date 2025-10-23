@@ -292,7 +292,17 @@ export default function ChatStream() {
     if (selectedImage) console.log("🖼️ Image prête à l’envoi :", selectedImage.substring(0, 50) + "...");
   }, [selectedImage]);
   
-
+  useEffect(() => {
+    const unlockAudio = () => {
+      const silentAudio = new Audio();
+      silentAudio.src = "data:audio/mp3;base64,//uQx...";
+      silentAudio.play().catch(() => {});
+      document.removeEventListener("click", unlockAudio);
+    };
+    document.addEventListener("click", unlockAudio);
+    return () => document.removeEventListener("click", unlockAudio);
+  }, []);
+  
 
 
   useEffect(() => {
