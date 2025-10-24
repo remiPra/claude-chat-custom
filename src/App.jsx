@@ -39,7 +39,7 @@ export default function App() {
     <BrowserRouter>
       <div className="min-h-screen bg-[#f5f5ff] text-[#191970] flex flex-col">
         {/* Header global */}
-        <header className="flex justify-between items-center px-6 py-4 bg-white border-b shadow-sm sticky top-0 z-50">
+        {/* <header className="flex justify-between items-center px-6 py-4 bg-white border-b shadow-sm sticky top-0 z-50">
           <h1 className="text-lg font-semibold text-[#191970]">Assistant Intelligent</h1>
           <nav className="flex items-center space-x-3">
             {userEmail === admin && (
@@ -51,7 +51,7 @@ export default function App() {
               </>
             )}
           </nav>
-        </header>
+        </header> */}
 
         {/* Routes principales */}
         <main className="flex-grow">

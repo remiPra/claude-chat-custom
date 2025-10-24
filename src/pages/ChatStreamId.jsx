@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import { Mic, X, Send, Plus, Wifi, BatteryFull, SignalHigh } from "lucide-react";
+import { Mic, X, Send, Plus, Wifi, BatteryFull, SignalHigh, Menu, ChevronLeft, MoreVertical, User } from "lucide-react";
+
 import ReactMarkdown from "react-markdown";
 import { Link, useLocation, useParams, useNavigate } from "react-router-dom";
 import { db } from "../firebase";
@@ -490,106 +491,206 @@ const handleScroll = useCallback(() => {
     }
   }, [conversationId]);
 
+  const [searchTerm, setSearchTerm] = useState("");
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isFullMenuOpen, setIsFullMenuOpen] = useState(false);
+
+
+const filteredConversations = conversations.filter(conv =>
+    conv.title && conv.title.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+  
+  
+  const handleSearch = () => {
+    if (!searchTerm.trim()) {
+      setFilteredConversations(conversations);
+      return;
+    }
+    const lower = searchTerm.toLowerCase();
+    const filtered = conversations.filter(conv =>
+      conv.title && conv.title.toLowerCase().includes(lower)
+    );
+    setFilteredConversations(filtered);
+  };
+  
+  
+
+
+
   return (
     <div className="bg-white text-[#191970] min-h-screen font-[Cinzel] flex flex-col">
       <div className="container mx-auto px-4 pt-6 flex flex-col flex-grow">
         {/* Header */}
         <header className="fixed top-0 left-0 w-full bg-white border-b shadow-sm z-50">
-          <div className="container mx-auto px-4 py-3 flex justify-between items-center">
-            <h1 className="text-lg font-semibold text-[#191970]">Assistant Vocal Intelligent</h1>
+  <div className="container mx-auto px-4 py-3 flex justify-between items-center">
+    {/* 🔘 Bouton toggle gauche (sidebar) */}
+    <div className="flex items-center gap-3">
+      <button
+        onClick={() => setIsSidebarOpen((prev) => !prev)}
+        className="bg-gray-200 hover:bg-gray-300 text-[#191970] rounded-full p-2 shadow transition"
+        title={isSidebarOpen ? "Masquer la barre latérale" : "Afficher la barre latérale"}
+      >
+        {isSidebarOpen ? <ChevronLeft className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+      </button>
 
-            <nav className="flex items-center space-x-2 bg-gray-100 p-1 rounded-full shadow-inner">
-              <Link
-                to="/"
-                className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
-                  location.pathname === "/"
-                    ? "bg-[#191970] text-white shadow-md"
-                    : "text-[#191970] hover:bg-white hover:shadow-sm"
-                }`}
-              >
-                💬 Chat
-              </Link>
+      <h1 className="text-lg font-semibold text-[#191970]">
+        Assistant Vocal Intelligent
+      </h1>
+    </div>
 
-              <Link
-                to="/stream"
-                className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
-                  location.pathname.startsWith("/stream")
-                    ? "bg-[#191970] text-white shadow-md"
-                    : "text-[#191970] hover:bg-white hover:shadow-sm"
-                }`}
-              >
-                ⚡ Stream
-              </Link>
 
-              <Link
-                to="/voice"
-                className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
-                  location.pathname === "/voice"
-                    ? "bg-[#191970] text-white shadow-md"
-                    : "text-[#191970] hover:bg-white hover:shadow-sm"
-                }`}
-              >
-                🎙️ Vocal
-              </Link>
-            </nav>
+    {/* ⚙️ Menu à droite */}
+    <div className="flex items-center gap-3">
+      <div className="hidden sm:flex items-center space-x-2 text-sm text-[#191970]">
+        <SignalHigh className="w-4 h-4" />
+        <Wifi className="w-4 h-4" />
+        <span>77%</span>
+        <BatteryFull className="w-4 h-4" />
+      </div>
 
-            <div className="hidden sm:flex items-center space-x-2 text-sm text-[#191970]">
-              <SignalHigh className="w-4 h-4" />
-              <Wifi className="w-4 h-4" />
-              <span>77%</span>
-              <BatteryFull className="w-4 h-4" />
-            </div>
-          </div>
-        </header>
+      {/* bouton menu utilisateur */}
+      <button
+  onClick={() => setIsFullMenuOpen(true)}
+  className="bg-gray-200 hover:bg-gray-300 text-[#191970] rounded-full p-2 shadow transition"
+  title="Ouvrir le menu principal"
+>
+  <MoreVertical className="w-5 h-5" />
+</button>
+
+    </div>
+  </div>
+</header>
+{isFullMenuOpen && (
+  <div className="fixed inset-0 bg-white bg-opacity-95 backdrop-blur-sm z-[9999] flex flex-col items-center justify-center animate-fadeIn">
+    {/* Bouton fermer */}
+    <button
+      onClick={() => setIsFullMenuOpen(false)}
+      className="absolute top-6 right-6 text-[#191970] hover:text-blue-900 transition text-3xl font-bold"
+      title="Fermer le menu"
+    >
+      ✖️
+    </button>
+
+    {/* Liens du menu */}
+    <nav className="flex flex-col items-center space-y-8 text-2xl text-[#191970] font-semibold">
+      <Link
+        to="/"
+        onClick={() => setIsFullMenuOpen(false)}
+        className="hover:text-blue-700 transition"
+      >
+        💬 Chat
+      </Link>
+      <Link
+        to="/stream"
+        onClick={() => setIsFullMenuOpen(false)}
+        className="hover:text-blue-700 transition"
+      >
+        ⚡ Stream
+      </Link>
+      <Link
+        to="/voice"
+        onClick={() => setIsFullMenuOpen(false)}
+        className="hover:text-blue-700 transition"
+      >
+        🎙️ Vocal
+      </Link>
+
+      <div className="w-16 h-[2px] bg-[#191970] my-4" />
+
+      <Link
+        to="/parametres"
+        onClick={() => setIsFullMenuOpen(false)}
+        className="hover:text-blue-700 transition"
+      >
+        ⚙️ Paramètres
+      </Link>
+      <Link
+        to="/profil"
+        onClick={() => setIsFullMenuOpen(false)}
+        className="hover:text-blue-700 transition"
+      >
+        👤 Profil
+      </Link>
+      <Link
+        to="/aide"
+        onClick={() => setIsFullMenuOpen(false)}
+        className="hover:text-blue-700 transition"
+      >
+        ❓ Aide
+      </Link>
+    </nav>
+  </div>
+)}
+
+
 
         {/* 💬 Contenu principal : Sidebar + Chat */}
-        <div className="flex h-[calc(100vh-60px)] mt-[60px] ml-64">
-          {/* 🧭 Sidebar gauche */}
-          <aside className="hidden md:flex fixed top-[60px] left-0 w-64 h-[calc(100vh-60px)] bg-gray-50 border-r border-gray-200 p-4 flex-col">
-            <button
-              onClick={startNewConversation}
-              className="mb-4 bg-blue-500 text-white py-2 rounded-lg shadow hover:bg-blue-600 transition"
-            >
-              + Nouvelle conversation
-            </button>
+        <div className="flex h-[calc(100vh-60px)] mt-[60px]">
+  {/* 🧭 Sidebar gauche */}
+  <aside
+    className={`fixed top-[60px] left-0 h-[calc(100vh-60px)] bg-gray-50 border-r border-gray-200 p-4 flex-col transition-all duration-300 ease-in-out
+      ${isSidebarOpen ? "w-64 opacity-100" : "w-0 opacity-0 overflow-hidden"}`}
+  >
+    <button
+      onClick={startNewConversation}
+      className="mb-4 bg-blue-500 text-white py-2 rounded-lg shadow hover:bg-blue-600 transition"
+    >
+      + Nouvelle conversation
+    </button>
+      {/* bouton toggle */}
+      
+    <input
+      type="text"
+      placeholder="Rechercher une conversation..."
+      className="w-full p-2 rounded-md border border-gray-300 focus:outline-none focus:ring"
+      value={searchTerm}
+      onChange={(e) => setSearchTerm(e.target.value)}
+    />
 
-            <div className="overflow-y-auto flex-1">
-              {conversations.map((conv) => (
-                <Link
-                  key={conv.id}
-                  to={`/stream/${conv.id}`}
-                  className={`block p-2 mb-2 rounded-lg cursor-pointer ${
-                    conv.id === conversationId
-                      ? "bg-blue-100 border-l-4 border-blue-500"
-                      : "hover:bg-gray-100"
-                  }`}
-                >
-                  <p className="text-sm text-gray-800 truncate">{conv.title}</p>
-                </Link>
-              ))}
-            </div>
-          </aside>
+    <div className="overflow-y-auto flex-1 mt-3">
+      {filteredConversations.map((conv) => (
+        <Link
+          key={conv.id}
+          to={`/stream/${conv.id}`}
+          className={`block p-2 mb-2 rounded-lg cursor-pointer ${
+            conv.id === conversationId
+              ? "bg-blue-100 border-l-4 border-blue-500"
+              : "hover:bg-gray-100"
+          }`}
+        >
+          <p className="text-sm text-gray-800 truncate">{conv.title || "Sans titre"}</p>
+        </Link>
+      ))}
+    </div>
+  </aside>
 
-          {/* 🧠 Zone du chat  */}
-          <section className="flex-1 flex flex-col bg-white p-6 overflow-y-auto">
-            <main className="flex-grow overflow-y-auto space-y-4 text-lg">
-              {messages.map((msg, idx) => (
-                <div
-                  key={idx}
-                  className={`p-4 rounded-xl max-w-[85%] border shadow-sm ${
-                    msg.from === "user"
-                      ? "ml-auto bg-[#191970] text-white"
-                      : "mr-auto bg-gray-100 text-[#191970]"
-                  }`}
-                >
-                  <ReactMarkdown>{msg.text}</ReactMarkdown>
-                </div>
-              ))}
-                <div ref={chatEndRef} />
+  {/* 🧠 Zone du chat */}
+  <section
+    className={`flex flex flex-col bg-white p-6 overflow-y-auto transition-all duration-300 ${
+      isSidebarOpen ? "ml-64" : "ml-0"
+    }`}
+  >
+    
 
-            </main>
-          </section>
+    {/* contenu du chat */}
+    <main className="flex-grow pb-[150px] overflow-y-auto space-y-4 text-lg">
+      {messages.map((msg, idx) => (
+        <div
+          key={idx}
+          className={`p-4 rounded-xl max-w-[85%] border shadow-sm ${
+            msg.from === "user"
+              ? "ml-auto bg-[#191970] text-white"
+              : "mr-auto bg-gray-100 text-[#191970]"
+          }`}
+        >
+          <ReactMarkdown>{msg.text}</ReactMarkdown>
         </div>
+      ))}
+      <div ref={chatEndRef} />
+    </main>
+  </section>
+</div>
+
 
         {!audioUnlocked && (
           <div className="fixed inset-0 bg-white flex flex-col items-center justify-center z-50">
