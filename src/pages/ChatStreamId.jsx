@@ -288,9 +288,21 @@ const [isUserNearBottom, setIsUserNearBottom] = useState(true);
 
           if (!response.ok) throw new Error("Erreur lors de la transcription");
 
+          // const data = await response.json();
+          // const transcribedText = data.text || "";
+          // setNewMessage(transcribedText);
+
+
           const data = await response.json();
-          const transcribedText = data.text || "";
-          setNewMessage(transcribedText);
+const transcribedText = data.text?.trim();
+
+if (transcribedText) {
+  console.log("🎤 Transcription terminée :", transcribedText);
+  await handleStreamCall(transcribedText); // envoi direct au LLM
+} else {
+  console.warn("⚠️ Aucune transcription détectée.");
+}
+
         } catch (error) {
           console.error("Erreur transcription:", error);
         }
@@ -673,7 +685,7 @@ const filteredConversations = conversations.filter(conv =>
     
 
     {/* contenu du chat */}
-    <main className="flex-grow pb-[150px] overflow-y-auto space-y-4 text-lg">
+    <main className="flex-grow overflow-y-auto space-y-4 text-lg">
       {messages.map((msg, idx) => (
         <div
           key={idx}
@@ -683,8 +695,10 @@ const filteredConversations = conversations.filter(conv =>
               : "mr-auto bg-gray-100 text-[#191970]"
           }`}
         >
+                <div className="markdown-container">
+
           <ReactMarkdown>{msg.text}</ReactMarkdown>
-        </div>
+        </div></div>
       ))}
       <div ref={chatEndRef} />
     </main>
@@ -726,8 +740,8 @@ const filteredConversations = conversations.filter(conv =>
         )}
 
         {/* Footer */}
-        <footer className="sticky bottom-0 py-4 bg-white">
-          {selectedImage && (
+        <footer className="sticky bottom-0 py-4 bg-white/10 ">
+        {selectedImage && (
             <div className="mb-4 flex justify-center">
               <div className="relative inline-block">
                 <img
@@ -746,7 +760,29 @@ const filteredConversations = conversations.filter(conv =>
             </div>
           )}
 
-          <form onSubmit={handleSend} className="flex items-center gap-2 mb-4">
+<div className="flex justify-center h-[100px] items-center space-x-6">
+            <label className="bg-gray-200 w-12 h-12 rounded-full flex items-center justify-center shadow-lg text-[#191970] hover:bg-gray-300 cursor-pointer">
+              <Plus className="w-6 h-6" />
+              <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+            </label>
+
+            <button
+              onClick={handleMicClick}
+              className={`w-32 h-20 rounded-full  flex items-center justify-center shadow-lg text-white transition-colors ${
+                isRecording ? "bg-red-500 animate-pulse" : "bg-[#191970] hover:bg-blue-900"
+              }`}
+            >
+              <Mic className="w-10 h-10" />
+            </button>
+
+            <button
+              onClick={stopTTS}
+              className="bg-gray-200 w-12 h-12 rounded-full flex items-center justify-center shadow-lg text-[#191970] hover:bg-gray-300"
+            >
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+          <form onSubmit={handleSend} className="flex bg-white items-center gap-2 mb-4">
             <input
               type="text"
               value={newMessage}
@@ -765,28 +801,6 @@ const filteredConversations = conversations.filter(conv =>
             </button>
           </form>
 
-          <div className="flex justify-center items-center space-x-6">
-            <label className="bg-gray-200 w-12 h-12 rounded-full flex items-center justify-center shadow-lg text-[#191970] hover:bg-gray-300 cursor-pointer">
-              <Plus className="w-6 h-6" />
-              <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
-            </label>
-
-            <button
-              onClick={handleMicClick}
-              className={`w-32 h-20 rounded-full flex items-center justify-center shadow-lg text-white transition-colors ${
-                isRecording ? "bg-red-500 animate-pulse" : "bg-[#191970] hover:bg-blue-900"
-              }`}
-            >
-              <Mic className="w-10 h-10" />
-            </button>
-
-            <button
-              onClick={stopTTS}
-              className="bg-gray-200 w-12 h-12 rounded-full flex items-center justify-center shadow-lg text-[#191970] hover:bg-gray-300"
-            >
-              <X className="w-6 h-6" />
-            </button>
-          </div>
         </footer>
       </div>
     </div>

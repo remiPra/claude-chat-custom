@@ -60,7 +60,7 @@ export default function ChatStream() {
     }
   }
 
-  // 🔍 Recherche dans les messages (et pas seulement les titres)
+  // 🔍 Recherche dans les messages
   async function handleSearch(term) {
     setSearchTerm(term);
     if (!term.trim()) {
@@ -71,19 +71,29 @@ export default function ChatStream() {
 
     setIsSearching(true);
     const lower = term.toLowerCase();
-
     const matches = [];
 
-    // Pour chaque conversation, on regarde dans ses sous-collections de messages
     for (const conv of conversations) {
       const messagesRef = collection(db, "conversations", conv.id, "messages");
       const snapshot = await getDocs(messagesRef);
 
-      const found = snapshot.docs.some((doc) =>
-        doc.data().text?.toLowerCase().includes(lower)
-      );
+      let foundSnippet = null;
 
-      if (found) matches.push(conv);
+      for (const docSnap of snapshot.docs) {
+        const text = docSnap.data().text?.toLowerCase() || "";
+        if (text.includes(lower)) {
+          const fullText = docSnap.data().text;
+          const index = fullText.toLowerCase().indexOf(lower);
+          const start = Math.max(0, index - 30);
+          const end = Math.min(fullText.length, index + 60);
+          foundSnippet = fullText.substring(start, end) + (end < fullText.length ? "…" : "");
+          break;
+        }
+      }
+
+      if (foundSnippet) {
+        matches.push({ ...conv, snippet: foundSnippet });
+      }
     }
 
     setFilteredConversations(matches);
@@ -157,7 +167,12 @@ export default function ChatStream() {
                       <h2 className="font-semibold text-[#191970] text-base truncate w-[150px] sm:w-[180px]">
                         {conv.title || "Nouvelle conversation"}
                       </h2>
-                      <p className="text-xs text-gray-500 mt-1">
+                      {conv.snippet && (
+                        <p className="text-xs text-gray-500 mt-1 italic line-clamp-2">
+                          “{conv.snippet}”
+                        </p>
+                      )}
+                      <p className="text-xs text-gray-400 mt-1">
                         {conv.createdAt
                           ? new Date(conv.createdAt.seconds * 1000).toLocaleString(
                               "fr-FR",

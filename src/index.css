@@ -1,4 +1,6 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Source+Sans+Pro:wght@300;400;600&family=Source+Code+Pro&display=swap');
+
 * {
     text-transform: none !important;
     font-variant-caps: normal !important;
@@ -12,3 +14,20 @@
     animation: fadeIn 0.3s ease-out;
   }
   
+
+  .markdown-container code {
+    /* background: #f4f4f4; */
+    padding: 0.2rem 0.4rem;
+    border-radius: 3px;
+
+    font-family: 'Courier New', monospace;
+  }
+
+  .markdown-container p {
+    /* background: #f4f4f4; */
+    padding: 0.2rem 0.4rem;
+    border-radius: 3px;
+    font-family: 'Source Code Pro', monospace;
+
+
+  }

@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mbijouterie - Bijoux Artisanaux en Argent Massif</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#C9A961',
+                        gold: {
+                            50: '#FAF8F3',
+                            100: '#F5F0E6',
+                            200: '#E8DCC4',
+                            300: '#D9C49D',
+                            400: '#C9A961',
+                            500: '#B8954E',
+                            600: '#9A7A3F',
+                            700: '#7A6032',
+                            800: '#5C4826',
+                            900: '#3E301A',
+                        }
+                    },
+                    fontFamily: {
+                        serif: ['Playfair Display', 'serif'],
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        h1, h2, h3, h4, h5, h6 {
+            font-family: 'Playfair Display', serif;
+        }
+        .loading-spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #C9A961;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-white text-gray-900">
+    
+    <!-- Bandeau info -->
+    <div class="bg-gray-100 text-gray-700 text-center py-2 text-sm">
+        Frais de port offerts à partir de 90 € en France métropolitaine
+    </div>
+
+    <!-- Header -->
+    <header class="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
+        <div class="container mx-auto px-4 lg:px-8 max-w-7xl">
+            <div class="flex items-center justify-between py-4">
+                <!-- Logo -->
+                <div class="flex-1 lg:flex-none">
+                    <a href="/" class="inline-block">
+                        <img id="site-logo" src="" alt="Mbijouterie" class="h-16 w-auto object-contain hidden">
+                        <span id="site-logo-text" class="text-2xl font-serif text-primary">Mbijouterie</span>
+                    </a>
+                </div>
+
+                <!-- Navigation desktop -->
+                <nav id="main-menu" class="hidden lg:flex items-center gap-8 flex-1 justify-center">
+                    <a href="/" class="text-sm font-medium text-gray-900 hover:text-primary transition-colors uppercase tracking-wide">Accueil</a>
+                    <a href="/boutique" class="text-sm font-medium text-gray-900 hover:text-primary transition-colors uppercase tracking-wide">Boutique</a>
+                    <a href="/ateliers" class="text-sm font-medium text-gray-900 hover:text-primary transition-colors uppercase tracking-wide">Ateliers Créatifs</a>
+                    <a href="/la-marque" class="text-sm font-medium text-gray-900 hover:text-primary transition-colors uppercase tracking-wide">La Marque</a>
+                    <a href="/blog" class="text-sm font-medium text-gray-900 hover:text-primary transition-colors uppercase tracking-wide">Blog</a>
+                    <a href="/contact" class="text-sm font-medium text-gray-900 hover:text-primary transition-colors uppercase tracking-wide">Contact</a>
+                </nav>
+
+                <!-- Actions -->
+                <div class="flex items-center gap-4">
+                    <button class="hidden sm:flex p-2 hover:bg-gray-100 rounded-full transition-colors">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                        </svg>
+                    </button>
+                    <button class="hidden sm:flex p-2 hover:bg-gray-100 rounded-full transition-colors">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                        </svg>
+                    </button>
+                    <button class="relative p-2 hover:bg-gray-100 rounded-full transition-colors">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                        </svg>
+                        <span class="absolute -top-1 -right-1 bg-primary text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">0</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="relative bg-gradient-to-br from-gray-50 to-white py-20 lg:py-32">
+        <div class="container mx-auto px-4 lg:px-8 max-w-7xl">
+            <div class="max-w-4xl mx-auto text-center">
+                <h1 class="text-4xl lg:text-6xl font-serif text-gray-900 mb-6 leading-tight">
+                    Bijoux artisanaux en argent massif, où la poésie rencontre la géométrie
+                </h1>
+                <p class="text-lg lg:text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
+                    Des créations uniques pour accompagner vos émotions les plus précieuses.
+                </p>
+                <a href="#produits" class="inline-block bg-primary hover:bg-gold-600 text-white font-medium px-8 py-3 rounded-lg transition-colors text-base">
+                    Je veux plus de poésie
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Section Bienvenue -->
+    <section class="py-16 lg:py-24">
+        <div class="container mx-auto px-4 lg:px-8 max-w-7xl">
+            <div class="max-w-3xl mx-auto text-center">
+                <h2 class="text-3xl lg:text-4xl font-serif text-primary mb-6">
+                    Bienvenue chez Mbijouterie
+                </h2>
+                <p class="text-base lg:text-lg text-gray-600 leading-relaxed mb-4">
+                    Des bijoux en argent massif pensés pour raconter une histoire unique : la vôtre.
+                    Chaque pièce est façonnée à la main avec soin, qu'il s'agisse d'une création issue des collections
+                    ou d'un bijou sur mesure conçu spécialement pour vous. Mbijouterie, c'est aussi des ateliers créatifs
+                    pour découvrir l'univers de la bijouterie artisanale et donner libre cours à sa créativité.
+                </p>
+                <p class="text-base lg:text-lg font-semibold text-gray-900">
+                    <span class="text-primary">Authenticité, élégance et transmission</span> guident chaque création,
+                    pour des bijoux qui vous ressemblent et qui traversent le temps.
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Section Produits en Vedette -->
+    <section id="produits" class="py-16 lg:py-24 bg-gray-50">
+        <div class="container mx-auto px-4 lg:px-8 max-w-7xl">
+            <h2 class="text-3xl lg:text-4xl font-serif text-primary text-center mb-12">
+                Vos Coups de Cœur
+            </h2>
+
+            <div id="products-loading" class="flex justify-center items-center py-12">
+                <div class="loading-spinner"></div>
+            </div>
+
+            <div id="products-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 hidden">
+                <!-- Les produits seront chargés ici dynamiquement -->
+            </div>
+        </div>
+    </section>
+
+    <!-- Section Trio de Dune -->
+    <section class="py-16 lg:py-24">
+        <div class="container mx-auto px-4 lg:px-8 max-w-7xl">
+            <div class="grid lg:grid-cols-2 gap-12 items-center">
+                <div class="relative aspect-square lg:aspect-auto lg:h-[500px] overflow-hidden rounded-lg shadow-lg">
+                    <img src="https://www.mbijouterie.fr/wp-content/uploads/2024/11/Dune-600x400-1.jpg" 
+                         alt="Bague Dune" 
+                         class="w-full h-full object-cover">
+                </div>
+                <div>
+                    <h2 class="text-3xl lg:text-4xl font-serif text-primary mb-6">
+                        Trio de Dune
+                    </h2>
+                    <p class="text-base lg:text-lg text-gray-600 leading-relaxed mb-8">
+                        La bague <strong>DUNE</strong> s'inspire des formes ondulées et naturelles du désert pour créer
+                        un bijou délicat et fluide. <strong>Légère et agréable à porter, elle se prête idéalement à l'accumulation</strong> :
+                        portez-la seule ou combinez-la avec d'autres bagues DUNE, proposées en <strong>lots de 2 ou 3</strong>,
+                        pour composer un style unique et personnel.
+                    </p>
+                    <a href="#" class="inline-block bg-primary hover:bg-gold-600 text-white font-medium px-8 py-3 rounded-lg transition-colors">
+                        Commander
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Section Ateliers Créatifs -->
+    <section class="py-16 lg:py-24 bg-gradient-to-br from-gray-100 to-gray-50">
+        <div class="container mx-auto px-4 lg:px-8 max-w-7xl">
+            <div class="grid lg:grid-cols-2 gap-12 items-center">
+                <div class="order-2 lg:order-1">
+                    <h2 class="text-3xl lg:text-4xl font-serif text-primary mb-6">
+                        Ateliers Créatifs
+                    </h2>
+                    <p class="text-base lg:text-lg text-gray-600 leading-relaxed mb-4">
+                        Entrez dans l'univers fascinant de la bijouterie artisanale et laissez vos mains s'exprimer.
+                    </p>
+                    <p class="text-base lg:text-lg text-gray-600 leading-relaxed mb-4">
+                        Un instant suspendu, où la matière se transforme et la créativité s'épanouit, entre gestes délicats
+                        et étincelles d'imagination.
+                    </p>
+                    <p class="text-base lg:text-lg text-gray-600 leading-relaxed mb-8">
+                        Chaque atelier devient une parenthèse hors du temps, pour faire naître des souvenirs à porter.
+                    </p>
+                    <a href="#" class="inline-block bg-primary hover:bg-gold-600 text-white font-medium px-8 py-3 rounded-lg transition-colors">
+                        Réserver votre expérience
+                    </a>
+                </div>
+                <div class="order-1 lg:order-2 relative aspect-square lg:aspect-auto lg:h-[500px] overflow-hidden rounded-lg shadow-lg">
+                    <img src="https://www.mbijouterie.fr/wp-content/uploads/2024/11/com-atelier-600x400-1.jpg" 
+                         alt="Ateliers créatifs" 
+                         class="w-full h-full object-cover">
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Section L'Âme des Bijoux -->
+    <section class="py-16 lg:py-24">
+        <div class="container mx-auto px-4 lg:px-8 max-w-7xl">
+            <div class="grid lg:grid-cols-2 gap-12 items-center">
+                <div class="relative aspect-square lg:aspect-auto lg:h-[500px] overflow-hidden rounded-lg shadow-lg">
+                    <img src="https://www.mbijouterie.fr/wp-content/uploads/2024/11/bague-pure-600x400-2.jpg" 
+                         alt="Mbijouterie, l'âme des bijoux" 
+                         class="w-full h-full object-cover">
+                </div>
+                <div>
+                    <h2 class="text-3xl lg:text-4xl font-serif text-primary mb-6">
+                        Mbijouterie, l'Âme des Bijoux
+                    </h2>
+                    <p class="text-base lg:text-lg text-gray-600 leading-relaxed mb-4">
+                        Chaque bijou est plus qu'un simple objet : il est porteur d'une histoire, d'un souvenir ou d'une émotion.
+                    </p>
+                    <p class="text-base lg:text-lg text-gray-600 leading-relaxed mb-4">
+                        Chez Mbijouterie, l'argent massif est façonné à la main pour révéler son authenticité, sa force et sa poésie.
+                    </p>
+                    <p class="text-base lg:text-lg text-gray-600 leading-relaxed">
+                        Les gestes donnent vie à des formes uniques, où la matière conserve la trace de son chemin.
+                        Cette singularité transforme la création en une pièce intime, un fragment de soi.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Section USP -->
+    <section class="py-12 bg-gray-50 border-t border-gray-200">
+        <div class="container mx-auto px-4 lg:px-8 max-w-7xl">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 text-center">
+                <div class="flex flex-col items-center gap-2">
+                    <div class="text-primary text-4xl mb-2">🔒</div>
+                    <h3 class="font-semibold text-sm uppercase tracking-wide">Paiement Sécurisé</h3>
+                </div>
+                <div class="flex flex-col items-center gap-2">
+                    <div class="text-primary text-4xl mb-2">🇫🇷</div>
+                    <h3 class="font-semibold text-sm uppercase tracking-wide">Made in France</h3>
+                </div>
+                <div class="flex flex-col items-center gap-2">
+                    <div class="text-primary text-4xl mb-2">✋</div>
+                    <h3 class="font-semibold text-sm uppercase tracking-wide">Produit 100% Fait Main</h3>
+                </div>
+                <div class="flex flex-col items-center gap-2">
+                    <div class="text-primary text-4xl mb-2">📦</div>
+                    <h3 class="font-semibold text-sm uppercase tracking-wide">Livraison Gratuite à partir de 90€</h3>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-gray-900 text-gray-300">
+        <div class="container mx-auto px-4 lg:px-8 max-w-7xl py-12">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                <!-- À propos -->
+                <div>
+                    <h4 class="font-serif text-lg text-primary mb-4">Mbijouterie</h4>
+                    <p class="text-sm leading-relaxed">
+                        Bijoux artisanaux en argent massif, où la poésie rencontre la géométrie.
+                        Des créations uniques pour accompagner vos émotions les plus précieuses.
+                    </p>
+                </div>
+
+                <!-- Navigation -->
+                <div>
+                    <h4 class="font-semibold text-sm uppercase tracking-wide mb-4 text-white">Navigation</h4>
+                    <ul class="space-y-2 text-sm">
+                        <li><a href="/" class="hover:text-primary transition-colors">Accueil</a></li>
+                        <li><a href="/boutique" class="hover:text-primary transition-colors">Boutique</a></li>
+                        <li><a href="/ateliers" class="hover:text-primary transition-colors">Ateliers Créatifs</a></li>
+                        <li><a href="/la-marque" class="hover:text-primary transition-colors">La Marque</a></li>
+                        <li><a href="/blog" class="hover:text-primary transition-colors">Blog</a></li>
+                        <li><a href="/contact" class="hover:text-primary transition-colors">Contact</a></li>
+                    </ul>
+                </div>
+
+                <!-- Informations -->
+                <div>
+                    <h4 class="font-semibold text-sm uppercase tracking-wide mb-4 text-white">Informations</h4>
+                    <ul class="space-y-2 text-sm">
+                        <li><a href="/cgv" class="hover:text-primary transition-colors">CGV</a></li>
+                        <li><a href="/mentions-legales" class="hover:text-primary transition-colors">Mentions Légales</a></li>
+                        <li><a href="/politique-confidentialite" class="hover:text-primary transition-colors">Confidentialité</a></li>
+                        <li><a href="/livraison" class="hover:text-primary transition-colors">Livraison & Retours</a></li>
+                    </ul>
+                </div>
+
+                <!-- Contact -->
+                <div>
+                    <h4 class="font-semibold text-sm uppercase tracking-wide mb-4 text-white">Contact</h4>
+                    <p class="text-sm mb-4">
+                        <strong class="text-white">Toulouse, France</strong><br>
+                        contact@mbijouterie.fr
+                    </p>
+                    <div class="flex gap-4">
+                        <a href="#" class="hover:text-primary transition-colors">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                        </a>
+                        <a href="#" class="hover:text-primary transition-colors">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Copyright -->
+        <div class="border-t border-gray-800">
+            <div class="container mx-auto px-4 lg:px-8 max-w-7xl py-6">
+                <p class="text-center text-sm">
+                    © <span id="current-year"></span> Mbijouterie. Tous droits réservés.
+                </p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Année courante
+        document.getElementById('current-year').textContent = new Date().getFullYear();
+
+        // Charger le logo
+        fetch('https://www.mbijouterie.fr/wp-json/wp/v2/media/5800')
+            .then(res => res.json())
+            .then(data => {
+                const logoImg = document.getElementById('site-logo');
+                const logoText = document.getElementById('site-logo-text');
+                logoImg.src = data.source_url;
+                logoImg.alt = data.alt_text || 'Mbijouterie';
+                logoImg.classList.remove('hidden');
+                logoText.classList.add('hidden');
+            })
+            .catch(err => console.error('Erreur chargement logo:', err));
+
+        // Charger les produits en vedette
+        fetch('https://www.mbijouterie.fr/wp-json/wc/store/v1/products?featured=true&per_page=8')
+            .then(res => res.json())
+            .then(products => {
+                const grid = document.getElementById('products-grid');
+                const loading = document.getElementById('products-loading');
+                
+                loading.classList.add('hidden');
+                grid.classList.remove('hidden');
+
+                products.forEach(product => {
+                    const price = product.prices?.price || '0';
+                    const regularPrice = product.prices?.regular_price || price;
+                    const salePrice = product.prices?.sale_price;
+                    const hasDiscount = product.on_sale && salePrice && parseFloat(salePrice) < parseFloat(regularPrice);
+                    const imageUrl = product.images?.[0]?.src || '';
+
+                    const priceHTML = hasDiscount 
+                        ? `<span class="text-lg font-bold text-primary">${(parseFloat(salePrice) / 100).toFixed(2)} €</span>
+                           <span class="text-sm text-gray-500 line-through">${(parseFloat(regularPrice) / 100).toFixed(2)} €</span>`
+                        : `<span class="text-lg font-bold text-primary">${(parseFloat(price) / 100).toFixed(2)} €</span>`;
+
+                    const productCard = `
+                        <div class="bg-white rounded-lg overflow-hidden shadow-md hover:shadow-xl transition-shadow duration-300 group">
+                            <div class="relative aspect-square overflow-hidden bg-gray-100">
+                                ${hasDiscount ? '<div class="absolute top-3 left-3 bg-red-600 text-white px-3 py-1 text-xs font-bold uppercase z-10 rounded">Promo !</div>' : ''}
+                                <button class="absolute top-3 right-3 bg-white/80 backdrop-blur-sm p-2 rounded-full hover:bg-white transition-colors z-10">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
+                                    </svg>
+                                </button>
+                                <a href="${product.permalink}" target="_blank" rel="noopener noreferrer">
+                                    <img src="${imageUrl}" alt="${product.name}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                                </a>
+                            </div>
+                            <div class="p-4">
+                                <a href="${product.permalink}" target="_blank" rel="noopener noreferrer" class="block">
+                                    <h3 class="font-medium text-sm line-clamp-2 mb-2 group-hover:text-primary transition-colors">${product.name}</h3>
+                                </a>
+                                <div class="flex items-baseline gap-2">
+                                    ${priceHTML}
+                                </div>
+                            </div>
+                            <div class="p-4 pt-0">
+                                <button class="w-full bg-primary hover:bg-gold-600 text-white font-medium py-2 px-4 rounded-lg transition-colors text-sm">
+                                    <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                                    </svg>
+                                    Ajouter au panier
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    
+                    grid.innerHTML += productCard;
+                });
+            })
+            .catch(err => {
+                console.error('Erreur chargement produits:', err);
+                document.getElementById('products-loading').innerHTML = '<p class="text-gray-500 text-center">Impossible de charger les produits</p>';
+            });
+    </script>
+</body>
+</html>
+
