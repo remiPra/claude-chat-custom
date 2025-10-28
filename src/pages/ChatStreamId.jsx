@@ -1,6 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import { Mic, X, Send, Plus, Wifi, BatteryFull, SignalHigh, Menu, ChevronLeft, MoreVertical, User } from "lucide-react";
-
+import { Mic, X, Send, Plus, Wifi, BatteryFull, SignalHigh, Menu, ChevronLeft, MoreVertical, User, Volume2, VolumeX } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { Link, useLocation, useParams, useNavigate } from "react-router-dom";
 import { db } from "../firebase";
@@ -76,7 +75,10 @@ async function generateTTSWithCache(sentence, voice = "fr-FR-DeniseNeural") {
 /**
  * Joue un texte complet une fois le flux terminé
  */
-async function speakText(text, stopFlagRef, currentAudioRef) {
+async function speakText(text, stopFlagRef, currentAudioRef,isTTSEnabled) {
+
+  if (!isTTSEnabled || stopFlagRef.current) return;
+
   if (stopFlagRef.current) return;
   const clean = cleanForSpeech(text);
   if (!clean) return;
@@ -108,6 +110,7 @@ async function speakText(text, stopFlagRef, currentAudioRef) {
   });
 
   await audio.play().catch(() => {});
+
 }
 
 export default function ChatStreamId() {
@@ -128,7 +131,8 @@ const [isUserNearBottom, setIsUserNearBottom] = useState(true);
   const [isRecording, setIsRecording] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
   const [conversations, setConversations] = useState([]);
-
+// 🆕 NOUVEAU : État pour activer/désactiver le TTS
+const [isTTSEnabled, setIsTTSEnabled] = useState(true);
   const stopFlagRef = useRef(false);
   const currentAudioRef = useRef(null);
   const [audioUnlocked, setAudioUnlocked] = useState(false);
@@ -164,6 +168,25 @@ const [isUserNearBottom, setIsUserNearBottom] = useState(true);
       console.error("❌ Erreur lors du déverrouillage audio:", err);
     }
   }, []);
+  // 🆕 NOUVEAU : Fonction pour toggle le TTS
+const toggleTTS = useCallback(() => {
+  setIsTTSEnabled(prev => {
+    const newState = !prev;
+    console.log(newState ? "🔊 TTS activé" : "🔇 TTS désactivé");
+    
+    // Si on désactive, on arrête l'audio en cours
+    if (!newState && currentAudioRef.current) {
+      currentAudioRef.current.pause();
+      currentAudioRef.current.currentTime = 0;
+      currentAudioRef.current = null;
+      stopFlagRef.current = true;
+    } else if (newState) {
+      stopFlagRef.current = false;
+    }
+    
+    return newState;
+  });
+}, []);
 
   // 💾 Sauvegarde un message dans Firestore
   async function saveMessage(sender, text, convId) {
@@ -402,7 +425,7 @@ if (transcribedText) {
         await saveMessage("bot", accumulatedText, conversationId);
 
         // Lecture vocale
-        await speakText(accumulatedText, stopFlagRef, currentAudioRef);
+        await speakText(accumulatedText, stopFlagRef, currentAudioRef,isTTSEnabled);
       } catch (error) {
         console.error("❌ Erreur streaming:", error);
         addMessage("Erreur lors de la récupération de la réponse.", "bot");
@@ -410,7 +433,8 @@ if (transcribedText) {
         setIsBotLoading(false);
       }
     },
-    [conversationId, messages, addMessage, selectedImage]
+    [conversationId, messages, addMessage, selectedImage, isTTSEnabled]
+
   );
 
 
@@ -759,29 +783,43 @@ const filteredConversations = conversations.filter(conv =>
               </div>
             </div>
           )}
-
 <div className="flex justify-center h-[100px] items-center space-x-6">
-            <label className="bg-gray-200 w-12 h-12 rounded-full flex items-center justify-center shadow-lg text-[#191970] hover:bg-gray-300 cursor-pointer">
-              <Plus className="w-6 h-6" />
-              <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
-            </label>
+  <label className="bg-gray-200 w-12 h-12 rounded-full flex items-center justify-center shadow-lg text-[#191970] hover:bg-gray-300 cursor-pointer">
+    <Plus className="w-6 h-6" />
+    <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+  </label>
 
-            <button
-              onClick={handleMicClick}
-              className={`w-32 h-20 rounded-full  flex items-center justify-center shadow-lg text-white transition-colors ${
-                isRecording ? "bg-red-500 animate-pulse" : "bg-[#191970] hover:bg-blue-900"
-              }`}
-            >
-              <Mic className="w-10 h-10" />
-            </button>
+  <button
+    onClick={handleMicClick}
+    className={`w-32 h-20 rounded-full flex items-center justify-center shadow-lg text-white transition-colors ${
+      isRecording ? "bg-red-500 animate-pulse" : "bg-[#191970] hover:bg-blue-900"
+    }`}
+  >
+    <Mic className="w-10 h-10" />
+  </button>
 
-            <button
-              onClick={stopTTS}
-              className="bg-gray-200 w-12 h-12 rounded-full flex items-center justify-center shadow-lg text-[#191970] hover:bg-gray-300"
-            >
-              <X className="w-6 h-6" />
-            </button>
-          </div>
+  {/* 🆕 Bouton toggle TTS */}
+  <button
+    onClick={toggleTTS}
+    className={`w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-colors ${
+      isTTSEnabled 
+        ? "bg-[#191970] text-white hover:bg-blue-900" 
+        : "bg-gray-300 text-gray-600 hover:bg-gray-400"
+    }`}
+    title={isTTSEnabled ? "Désactiver le text-to-speech" : "Activer le text-to-speech"}
+  >
+    {isTTSEnabled ? <Volume2 className="w-6 h-6" /> : <VolumeX className="w-6 h-6" />}
+  </button>
+
+  {/* Bouton stop TTS */}
+  <button
+    onClick={stopTTS}
+    className="bg-gray-200 w-12 h-12 rounded-full flex items-center justify-center shadow-lg text-[#191970] hover:bg-gray-300"
+    title="Arrêter la lecture en cours"
+  >
+    <X className="w-6 h-6" />
+  </button>
+</div>
           <form onSubmit={handleSend} className="flex bg-white items-center gap-2 mb-4">
             <input
               type="text"
