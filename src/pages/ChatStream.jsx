@@ -60,45 +60,71 @@ export default function ChatStream() {
     }
   }
 
-  // 🔍 Recherche dans les messages
-  async function handleSearch(term) {
-    setSearchTerm(term);
-    if (!term.trim()) {
-      setFilteredConversations(conversations);
-      setIsSearching(false);
-      return;
-    }
-
-    setIsSearching(true);
-    const lower = term.toLowerCase();
-    const matches = [];
-
-    for (const conv of conversations) {
-      const messagesRef = collection(db, "conversations", conv.id, "messages");
-      const snapshot = await getDocs(messagesRef);
-
-      let foundSnippet = null;
-
-      for (const docSnap of snapshot.docs) {
-        const text = docSnap.data().text?.toLowerCase() || "";
-        if (text.includes(lower)) {
-          const fullText = docSnap.data().text;
-          const index = fullText.toLowerCase().indexOf(lower);
-          const start = Math.max(0, index - 30);
-          const end = Math.min(fullText.length, index + 60);
-          foundSnippet = fullText.substring(start, end) + (end < fullText.length ? "…" : "");
-          break;
-        }
-      }
-
-      if (foundSnippet) {
-        matches.push({ ...conv, snippet: foundSnippet });
-      }
-    }
-
-    setFilteredConversations(matches);
+ // 🔍 Recherche dans les messages avec contexte (2-3 phrases)
+async function handleSearch(term) {
+  setSearchTerm(term);
+  if (!term.trim()) {
+    setFilteredConversations(conversations);
     setIsSearching(false);
+    return;
   }
+
+  setIsSearching(true);
+  const lower = term.toLowerCase();
+  const matches = [];
+
+  for (const conv of conversations) {
+    const messagesRef = collection(db, "conversations", conv.id, "messages");
+    const snapshot = await getDocs(messagesRef);
+
+    let foundSnippet = null;
+
+    for (const docSnap of snapshot.docs) {
+      const text = docSnap.data().text || "";
+      const lowerText = text.toLowerCase();
+
+      if (lowerText.includes(lower)) {
+        // Trouve la position du mot clé
+        const index = lowerText.indexOf(lower);
+
+        // Découpe en phrases pour un contexte plus large
+        const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
+        let sentenceIndex = 0;
+
+        // Trouve la phrase où le mot apparaît
+        for (let i = 0; i < sentences.length; i++) {
+          if (sentences[i].toLowerCase().includes(lower)) {
+            sentenceIndex = i;
+            break;
+          }
+        }
+
+        // Prend 1 phrase avant et 1 après pour le contexte
+        const start = Math.max(0, sentenceIndex - 1);
+        const end = Math.min(sentences.length, sentenceIndex + 2);
+
+        const context = sentences.slice(start, end).join(" ").trim();
+
+        // Mets en évidence le mot clé
+        const highlighted = context.replace(
+          new RegExp(`(${term})`, "gi"),
+          "👉 $1 👈"
+        );
+
+        foundSnippet = highlighted + (end < sentences.length ? "…" : "");
+        break;
+      }
+    }
+
+    if (foundSnippet) {
+      matches.push({ ...conv, snippet: foundSnippet });
+    }
+  }
+
+  setFilteredConversations(matches);
+  setIsSearching(false);
+}
+
 
   return (
     <div className="bg-white text-[#191970] min-h-screen font-[Cinzel] flex flex-col">
@@ -144,7 +170,7 @@ export default function ChatStream() {
         </button>
 
         {/* Liste responsive */}
-        <div className="grid gap-4 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3 fadeInUp">
+        <div className="grid  fadeInUp">
           {filteredConversations.length === 0 ? (
             <p className="text-center text-gray-500 col-span-full py-10">
               {searchTerm
