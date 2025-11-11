@@ -275,6 +275,8 @@ const toggleTTS = useCallback(() => {
     }
   }
 
+
+
   // 🎤 Gestion de l'enregistrement vocal
   const handleMicClick = useCallback(async () => {
     if (isRecording) {
@@ -348,6 +350,93 @@ if (transcribedText) {
     reader.onload = () => setSelectedImage(reader.result);
     reader.readAsDataURL(file);
   }, []);
+
+  const handleWebSearch = useCallback(async () => {
+    const query = newMessage.trim();
+    if (!query) return;
+  
+    stopFlagRef.current = false;
+    addMessage(query, "user");
+    await saveMessage("user", query, conversationId);
+    setNewMessage("");
+    setIsBotLoading(true);
+  
+    try {
+      // 1️⃣ Effectue la recherche web
+      const resp = await fetch(`${API_URL}/api/ollama-web-search`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query }),
+      });
+  
+      if (!resp.ok) throw new Error("Erreur HTTP Ollama Web Search");
+      const data = await resp.json();
+  
+      if (data.results?.length) {
+        // 2️⃣ Prépare le contexte pour le LLM
+        const searchContext = data.results
+          .map((r, idx) => 
+            `[${idx + 1}] ${r.title}\n${r.snippet || r.content || ""}\nSource: ${r.url}`
+          )
+          .join("\n\n");
+  
+        // 3️⃣ Construit l'historique avec le contexte de recherche
+        const history = messages.map((m) => ({
+          role: m.from === "user" ? "user" : "assistant",
+          content: m.text,
+        }));
+  
+        history.push({
+          role: "user",
+          content: `Voici les résultats de recherche pour "${query}":\n\n${searchContext}\n\nPeux-tu me faire une synthèse claire et structurée en français de ces informations ?`,
+        });
+  
+        // 4️⃣ Envoie au LLM pour traitement
+        const llmResponse = await fetch(`${API_URL}/api/qwen-stream`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ messages: history }),
+        });
+  
+        if (!llmResponse.ok) throw new Error(`Erreur LLM: ${llmResponse.status}`);
+  
+        // 5️⃣ Stream la réponse du LLM
+        const reader = llmResponse.body.getReader();
+        const decoder = new TextDecoder("utf-8");
+        let accumulatedText = "";
+  
+        addMessage("", "bot");
+  
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+  
+          const chunk = decoder.decode(value, { stream: true });
+          accumulatedText += chunk;
+  
+          setMessages((prev) => {
+            const updated = [...prev];
+            updated[updated.length - 1] = { from: "bot", text: accumulatedText };
+            return updated;
+          });
+        }
+  
+        // 6️⃣ Sauvegarde et lecture vocale
+        await saveMessage("bot", accumulatedText, conversationId);
+        await speakText(accumulatedText, stopFlagRef, currentAudioRef, isTTSEnabled);
+  
+      } else {
+        const noResult = "Aucun résultat trouvé pour cette recherche 🧐";
+        addMessage(noResult, "bot");
+        await saveMessage("bot", noResult, conversationId);
+      }
+    } catch (error) {
+      console.error("❌ Erreur Web Search:", error);
+      addMessage("Erreur lors de la recherche web.", "bot");
+    } finally {
+      setIsBotLoading(false);
+    }
+  }, [newMessage, conversationId, addMessage, messages, isTTSEnabled]);
 
   // 📤 Gestion de l'envoi de message
   const handleStreamCall = useCallback(
@@ -699,35 +788,125 @@ const filteredConversations = conversations.filter(conv =>
       ))}
     </div>
   </aside>
-
-  {/* 🧠 Zone du chat */}
-  <section
-    className={`flex flex flex-col bg-white p-6 overflow-y-auto transition-all duration-300 ${
-      isSidebarOpen ? "ml-64" : "ml-0"
-    }`}
-  >
-    
-
-    {/* contenu du chat */}
-    <main className="flex-grow overflow-y-auto space-y-4 text-lg">
-      {messages.map((msg, idx) => (
-        <div
-          key={idx}
-          className={`p-4 rounded-xl max-w-[85%] border shadow-sm ${
-            msg.from === "user"
-              ? "ml-auto bg-[#191970] text-white"
-              : "mr-auto bg-gray-100 text-[#191970]"
-          }`}
-        >
-                <div className="markdown-container">
-
+{/* 🧠 Zone du chat - CORRECTION */}
+<section
+  ref={chatContainerRef}  // 👈 Ajoute la ref ici
+  className={`flex-1 flex flex-col bg-white transition-all duration-300 ${
+    isSidebarOpen ? "ml-64" : "ml-0"
+  }`}
+  style={{ height: 'calc(100vh - 60px)' }} // 👈 Hauteur fixe
+>
+  {/* contenu du chat */}
+  <main className="flex-grow overflow-y-auto space-y-4 text-lg p-6">
+    {messages.map((msg, idx) => (
+      <div
+        key={idx}
+        className={`p-4 rounded-xl max-w-[85%] border shadow-sm ${
+          msg.from === "user"
+            ? "ml-auto bg-[#191970] text-white"
+            : "mr-auto bg-gray-100 text-[#191970]"
+        }`}
+      >
+        <div className="markdown-container">
           <ReactMarkdown>{msg.text}</ReactMarkdown>
-        </div></div>
-      ))}
-      <div ref={chatEndRef} />
-    </main>
-  </section>
+        </div>
+      </div>
+    ))}
+    <div ref={chatEndRef} />
+  </main>
+
+
+</section>
 </div>
+  {/* Footer - CORRECTION */}
+  <footer className="w-full py-4 bg-white border-t shadow-lg">
+    {selectedImage && (
+      <div className="mb-4 flex justify-center px-4">
+        <div className="relative inline-block">
+          <img
+            src={selectedImage}
+            alt="Prévisualisation"
+            className="w-40 h-auto rounded-xl border shadow-md"
+          />
+          <button
+            onClick={() => setSelectedImage(null)}
+            className="absolute top-1 right-1 bg-black bg-opacity-60 text-white rounded-full p-1 hover:bg-opacity-80"
+            title="Supprimer l'image"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      </div>
+    )}
+
+    <div className="flex justify-center h-[100px] items-center space-x-6 px-4">
+      <label className="bg-gray-200 w-12 h-12 rounded-full flex items-center justify-center shadow-lg text-[#191970] hover:bg-gray-300 cursor-pointer">
+        <Plus className="w-6 h-6" />
+        <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+      </label>
+
+      <button
+        onClick={handleMicClick}
+        className={`w-32 h-20 rounded-full flex items-center justify-center shadow-lg text-white transition-colors ${
+          isRecording ? "bg-red-500 animate-pulse" : "bg-[#191970] hover:bg-blue-900"
+        }`}
+      >
+        <Mic className="w-10 h-10" />
+      </button>
+
+      <button
+        onClick={toggleTTS}
+        className={`w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-colors ${
+          isTTSEnabled 
+            ? "bg-[#191970] text-white hover:bg-blue-900" 
+            : "bg-gray-300 text-gray-600 hover:bg-gray-400"
+        }`}
+        title={isTTSEnabled ? "Désactiver le text-to-speech" : "Activer le text-to-speech"}
+      >
+        {isTTSEnabled ? <Volume2 className="w-6 h-6" /> : <VolumeX className="w-6 h-6" />}
+      </button>
+
+      <button
+        onClick={stopTTS}
+        className="bg-gray-200 w-12 h-12 rounded-full flex items-center justify-center shadow-lg text-[#191970] hover:bg-gray-300"
+        title="Arrêter la lecture en cours"
+      >
+        <X className="w-6 h-6" />
+      </button>
+    </div>
+
+    <form onSubmit={handleSend} className="flex items-center gap-2 px-4">
+      <input
+        type="text"
+        value={newMessage}
+        onChange={(e) => setNewMessage(e.target.value)}
+        onPaste={handlePasteInInput}
+        placeholder="Parle ou écris un message..."
+        className="flex-grow border border-gray-400 rounded-lg px-3 py-2 bg-white text-[#191970] focus:outline-none focus:ring-2 focus:ring-[#191970]"
+      />
+      
+      <button
+  type="button"
+  onClick={(e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    handleWebSearch();
+  }}
+  className="relative z-20 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+  title="Recherche sur le Web via Ollama"
+>
+  {isBotLoading ? "⏳" : "🌐"} Web
+</button>
+      
+      <button
+        type="submit"
+        className="bg-[#191970] text-white px-4 py-2 rounded-lg hover:bg-blue-900 transition-colors disabled:opacity-50"
+        disabled={isBotLoading}
+      >
+        <Send className="w-5 h-5" />
+      </button>
+    </form>
+  </footer>
 
 
         {!audioUnlocked && (
@@ -763,83 +942,7 @@ const filteredConversations = conversations.filter(conv =>
           </div>
         )}
 
-        {/* Footer */}
-        <footer className="sticky bottom-0 py-4 bg-white/10 ">
-        {selectedImage && (
-            <div className="mb-4 flex justify-center">
-              <div className="relative inline-block">
-                <img
-                  src={selectedImage}
-                  alt="Prévisualisation"
-                  className="w-40 h-auto rounded-xl border shadow-md"
-                />
-                <button
-                  onClick={() => setSelectedImage(null)}
-                  className="absolute top-1 right-1 bg-black bg-opacity-60 text-white rounded-full p-1 hover:bg-opacity-80"
-                  title="Supprimer l'image"
-                >
-                  <X size={14} />
-                </button>
-              </div>
-            </div>
-          )}
-<div className="flex justify-center h-[100px] items-center space-x-6">
-  <label className="bg-gray-200 w-12 h-12 rounded-full flex items-center justify-center shadow-lg text-[#191970] hover:bg-gray-300 cursor-pointer">
-    <Plus className="w-6 h-6" />
-    <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
-  </label>
-
-  <button
-    onClick={handleMicClick}
-    className={`w-32 h-20 rounded-full flex items-center justify-center shadow-lg text-white transition-colors ${
-      isRecording ? "bg-red-500 animate-pulse" : "bg-[#191970] hover:bg-blue-900"
-    }`}
-  >
-    <Mic className="w-10 h-10" />
-  </button>
-
-  {/* 🆕 Bouton toggle TTS */}
-  <button
-    onClick={toggleTTS}
-    className={`w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-colors ${
-      isTTSEnabled 
-        ? "bg-[#191970] text-white hover:bg-blue-900" 
-        : "bg-gray-300 text-gray-600 hover:bg-gray-400"
-    }`}
-    title={isTTSEnabled ? "Désactiver le text-to-speech" : "Activer le text-to-speech"}
-  >
-    {isTTSEnabled ? <Volume2 className="w-6 h-6" /> : <VolumeX className="w-6 h-6" />}
-  </button>
-
-  {/* Bouton stop TTS */}
-  <button
-    onClick={stopTTS}
-    className="bg-gray-200 w-12 h-12 rounded-full flex items-center justify-center shadow-lg text-[#191970] hover:bg-gray-300"
-    title="Arrêter la lecture en cours"
-  >
-    <X className="w-6 h-6" />
-  </button>
-</div>
-          <form onSubmit={handleSend} className="flex bg-white items-center gap-2 mb-4">
-            <input
-              type="text"
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              onPaste={handlePasteInInput}
-              placeholder="Parle ou écris un message..."
-              className="flex-grow border border-gray-400 rounded-lg px-3 py-2 bg-white text-[#191970] focus:outline-none focus:ring-2 focus:ring-[#191970]"
-              disabled={isBotLoading || isRecording}
-            />
-            <button
-              type="submit"
-              className="bg-[#191970] text-white px-4 py-2 rounded-lg hover:bg-blue-900 transition-colors disabled:opacity-50"
-              disabled={isBotLoading}
-            >
-              <Send className="w-5 h-5" />
-            </button>
-          </form>
-
-        </footer>
+     
       </div>
     </div>
   );
