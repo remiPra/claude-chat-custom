@@ -442,7 +442,7 @@ if (transcribedText) {
             }
   
             await saveMessage("bot", accumulatedText, conversationId);
-            await speakText(accumulatedText, stopFlagRef, currentAudioRef, isTTSEnabled);
+            await speakTextBySentence(accumulatedText, stopFlagRef, currentAudioRef, isTTSEnabled);
           } else {
             const noResult = "Aucun résultat trouvé 🧐";
             addMessage(noResult, "bot");
@@ -503,7 +503,7 @@ if (transcribedText) {
         }
   
         await saveMessage("bot", accumulatedText, conversationId);
-        await speakText(accumulatedText, stopFlagRef, currentAudioRef, isTTSEnabled);
+        await speakTextBySentence(accumulatedText, stopFlagRef, currentAudioRef, isTTSEnabled);
       } catch (error) {
         console.error("❌ Erreur streaming:", error);
         addMessage("Erreur lors de la récupération de la réponse.", "bot");
@@ -613,6 +613,60 @@ const handleScroll = useCallback(() => {
 const filteredConversations = conversations.filter(conv =>
     conv.title && conv.title.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  function splitIntoSentences(text) {
+    return text
+      .replace(/\s+/g, " ")
+      .match(/[^.!?]+[.!?]+/g) || [text];
+  }
+  async function speakTextBySentence(fullText, stopFlagRef, currentAudioRef, isTTSEnabled) {
+    if (!isTTSEnabled || stopFlagRef.current) return;
+  
+    const clean = cleanForSpeech(fullText);
+    if (!clean) return;
+  
+    const sentences = splitIntoSentences(clean);
+  
+    for (const sentence of sentences) {
+      if (stopFlagRef.current) return;
+  
+      const audioUrl = await generateTTSWithCache(sentence);
+      if (!audioUrl) continue;
+  
+      if (currentAudioRef.current) {
+        currentAudioRef.current.pause();
+        currentAudioRef.current.currentTime = 0;
+        currentAudioRef.current = null;
+      }
+  
+      const audio = new Audio(audioUrl);
+      currentAudioRef.current = audio;
+  
+      // Gestion du stop asynchrone
+      await new Promise((resolve) => {
+        audio.onended = resolve;
+        audio.onerror = resolve;
+  
+        const checkStop = () => {
+          if (stopFlagRef.current) {
+            audio.pause();
+            audio.currentTime = 0;
+            currentAudioRef.current = null;
+            resolve();
+          } else if (!audio.paused) {
+            requestAnimationFrame(checkStop);
+          }
+        };
+  
+        audio.addEventListener("play", () => requestAnimationFrame(checkStop));
+  
+        audio.play().catch(resolve);
+      });
+    }
+  }
+  
+  
+      
   
   
   const handleSearch = () => {
@@ -786,23 +840,24 @@ const filteredConversations = conversations.filter(conv =>
   style={{ height: 'calc(100vh - 60px)' }} // 👈 Hauteur fixe
 >
   {/* contenu du chat */}
-  <main className="flex-grow overflow-y-auto space-y-4 text-lg p-6">
-    {messages.map((msg, idx) => (
-      <div
-        key={idx}
-        className={`p-4 rounded-xl max-w-[85%] border shadow-sm ${
-          msg.from === "user"
-            ? "ml-auto bg-[#191970] text-white"
-            : "mr-auto bg-gray-100 text-[#191970]"
-        }`}
-      >
-        <div className="markdown-container">
-          <ReactMarkdown>{msg.text}</ReactMarkdown>
-        </div>
+  {/* contenu du chat */}
+<main className="flex-grow overflow-y-auto space-y-4 text-lg p-2 sm:p-6">
+  {messages.map((msg, idx) => (
+    <div
+      key={idx}
+      className={`p-3 sm:p-4 rounded-xl w-full sm:max-w-[85%] border shadow-sm ${
+        msg.from === "user"
+          ? "sm:ml-auto bg-[#191970] text-white"
+          : "sm:mr-auto bg-gray-100 text-[#191970]"
+      }`}
+    >
+      <div className="markdown-container">
+        <ReactMarkdown>{msg.text}</ReactMarkdown>
       </div>
-    ))}
-    <div ref={chatEndRef} />
-  </main>
+    </div>
+  ))}
+  <div ref={chatEndRef} />
+</main>
 
 
 </section>
