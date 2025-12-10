@@ -1,7 +1,27 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import { Mic, X, Send, Plus, Wifi, BatteryFull, SignalHigh, Menu, ChevronLeft, MoreVertical, User, Volume2, VolumeX } from "lucide-react";
+import {
+  Mic,
+  X,
+  Send,
+  Plus,
+  Wifi,
+  BatteryFull,
+  SignalHigh,
+  Menu,
+  ChevronLeft,
+  MoreVertical,
+  Volume2,
+  VolumeX,
+  MessageSquare,
+  Zap,
+  Mic2,
+  Settings,
+  User,
+  HelpCircle,
+  Search,
+} from "lucide-react";
 import ReactMarkdown from "react-markdown";
-import { Link, useLocation, useParams, useNavigate } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import { db } from "../firebase";
 import {
   collection,
@@ -46,11 +66,14 @@ async function generateTTSWithCache(sentence, voice = "fr-FR-DeniseNeural") {
   if (ttsCache.has(cacheKey)) return ttsCache.get(cacheKey);
 
   try {
-    const response = await fetch("https://seo-tool-cd8x.onrender.com/synthesize", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: sentence, voice }),
-    });
+    const response = await fetch(
+      "https://seo-tool-cd8x.onrender.com/synthesize",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: sentence, voice }),
+      }
+    );
 
     if (!response.ok) throw new Error(`Erreur HTTP TTS: ${response.status}`);
 
@@ -72,74 +95,98 @@ async function generateTTSWithCache(sentence, voice = "fr-FR-DeniseNeural") {
   }
 }
 
-/**
- * Joue un texte complet une fois le flux terminé
- */
-async function speakText(text, stopFlagRef, currentAudioRef,isTTSEnabled) {
-
-  if (!isTTSEnabled || stopFlagRef.current) return;
-
-  if (stopFlagRef.current) return;
-  const clean = cleanForSpeech(text);
-  if (!clean) return;
-
-  const audioUrl = await generateTTSWithCache(clean);
-  if (!audioUrl) return;
-
-  // 🔇 Stoppe tout son en cours
-  if (currentAudioRef.current) {
-    currentAudioRef.current.pause();
-    currentAudioRef.current.currentTime = 0;
-    currentAudioRef.current = null;
-  }
-
-  const audio = new Audio(audioUrl);
-  currentAudioRef.current = audio;
-
-  audio.addEventListener("play", () => {
-    const checkStop = () => {
-      if (stopFlagRef.current && !audio.paused) {
-        audio.pause();
-        audio.currentTime = 0;
-        currentAudioRef.current = null;
-      } else if (!audio.paused) {
-        requestAnimationFrame(checkStop);
-      }
-    };
-    requestAnimationFrame(checkStop);
-  });
-
-  await audio.play().catch(() => {});
-
+function splitIntoSentences(text) {
+  return text.replace(/\s+/g, " ").match(/[^.!?]+[.!?]+/g) || [text];
 }
 
+async function speakTextBySentence(
+  fullText,
+  stopFlagRef,
+  currentAudioRef,
+  isTTSEnabled
+) {
+  if (!isTTSEnabled || stopFlagRef.current) return;
+
+  const clean = cleanForSpeech(fullText);
+  if (!clean) return;
+
+  const sentences = splitIntoSentences(clean);
+
+  for (const sentence of sentences) {
+    if (stopFlagRef.current) return;
+
+    const audioUrl = await generateTTSWithCache(sentence);
+    if (!audioUrl) continue;
+
+    if (currentAudioRef.current) {
+      currentAudioRef.current.pause();
+      currentAudioRef.current.currentTime = 0;
+      currentAudioRef.current = null;
+    }
+
+    const audio = new Audio(audioUrl);
+    currentAudioRef.current = audio;
+
+    await new Promise((resolve) => {
+      audio.onended = resolve;
+      audio.onerror = resolve;
+
+      const checkStop = () => {
+        if (stopFlagRef.current) {
+          audio.pause();
+          audio.currentTime = 0;
+          currentAudioRef.current = null;
+          resolve();
+        } else if (!audio.paused) {
+          requestAnimationFrame(checkStop);
+        }
+      };
+
+      audio.addEventListener("play", () => requestAnimationFrame(checkStop));
+      audio.play().catch(resolve);
+    });
+  }
+}
+
+// ============================================
+// COMPOSANT PRINCIPAL
+// ============================================
 export default function ChatStreamId() {
-  // 🎯 NOUVEAU : récupère l'ID depuis l'URL
   const { conversationId } = useParams();
   const navigate = useNavigate();
-  const location = useLocation();
-    // --- tout en haut de ton composant ---
-const chatContainerRef = useRef(null);
-const chatEndRef = useRef(null);
-const [isUserNearBottom, setIsUserNearBottom] = useState(true);
 
+  // Refs
+  const chatContainerRef = useRef(null);
+  const chatEndRef = useRef(null);
+  const stopFlagRef = useRef(false);
+  const currentAudioRef = useRef(null);
+  const audioContextRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
+
+  // États
   const [messages, setMessages] = useState([
-    { from: "bot", text: "Bonjour 👋 Je suis la version streamée de ton assistant intelligent." },
+    {
+      from: "bot",
+      text: "Bonjour 👋 Je suis ton assistant intelligent. Comment puis-je t'aider aujourd'hui ?",
+    },
   ]);
   const [newMessage, setNewMessage] = useState("");
   const [isBotLoading, setIsBotLoading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
   const [conversations, setConversations] = useState([]);
-// 🆕 NOUVEAU : État pour activer/désactiver le TTS
-const [isTTSEnabled, setIsTTSEnabled] = useState(true);
-  const stopFlagRef = useRef(false);
-  const currentAudioRef = useRef(null);
+  const [isTTSEnabled, setIsTTSEnabled] = useState(true);
   const [audioUnlocked, setAudioUnlocked] = useState(false);
-  const audioContextRef = useRef(null);
+  const [isUserNearBottom, setIsUserNearBottom] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Fermé par défaut sur mobile
+  const [isFullMenuOpen, setIsFullMenuOpen] = useState(false);
+  const [isWebSearchEnabled, setIsWebSearchEnabled] = useState(false);
 
-  const mediaRecorderRef = useRef(null);
-  const audioChunksRef = useRef([]);
+  // ============================================
+  // FONCTIONS UTILITAIRES
+  // ============================================
 
   const addMessage = useCallback((text, from) => {
     setMessages((prev) => [...prev, { from, text }]);
@@ -163,39 +210,42 @@ const [isTTSEnabled, setIsTTSEnabled] = useState(true);
 
       audioContextRef.current = ctx;
       setAudioUnlocked(true);
-      console.log("🔊 Audio déverrouillé sur iOS ✅");
     } catch (err) {
       console.error("❌ Erreur lors du déverrouillage audio:", err);
     }
   }, []);
-  // 🆕 NOUVEAU : Fonction pour toggle le TTS
-const toggleTTS = useCallback(() => {
-  setIsTTSEnabled(prev => {
-    const newState = !prev;
-    console.log(newState ? "🔊 TTS activé" : "🔇 TTS désactivé");
-    
-    // Si on désactive, on arrête l'audio en cours
-    if (!newState && currentAudioRef.current) {
+
+  const toggleTTS = useCallback(() => {
+    setIsTTSEnabled((prev) => {
+      const newState = !prev;
+      if (!newState && currentAudioRef.current) {
+        currentAudioRef.current.pause();
+        currentAudioRef.current.currentTime = 0;
+        currentAudioRef.current = null;
+        stopFlagRef.current = true;
+      } else if (newState) {
+        stopFlagRef.current = false;
+      }
+      return newState;
+    });
+  }, []);
+
+  const stopTTS = useCallback(() => {
+    stopFlagRef.current = true;
+    if (currentAudioRef.current) {
       currentAudioRef.current.pause();
       currentAudioRef.current.currentTime = 0;
       currentAudioRef.current = null;
-      stopFlagRef.current = true;
-    } else if (newState) {
-      stopFlagRef.current = false;
     }
-    
-    return newState;
-  });
-}, []);
+  }, []);
 
-  // 💾 Sauvegarde un message dans Firestore
+  // ============================================
+  // FIREBASE FUNCTIONS
+  // ============================================
+
   async function saveMessage(sender, text, convId) {
     try {
-      if (!convId) {
-        console.error("❌ Pas d'ID de conversation pour sauvegarder");
-        return;
-      }
-
+      if (!convId) return;
       await addDoc(collection(db, "conversations", convId, "messages"), {
         from: sender,
         text,
@@ -206,7 +256,6 @@ const toggleTTS = useCallback(() => {
     }
   }
 
-  // 📝 Met à jour le titre d'une conversation
   async function updateConversationTitle(conversationId, title) {
     try {
       const convRef = doc(db, "conversations", conversationId);
@@ -216,10 +265,9 @@ const toggleTTS = useCallback(() => {
     }
   }
 
-  // 📖 Charge les messages d'une conversation
   async function loadMessages(convId) {
     if (!convId) return;
-    
+
     try {
       const q = query(
         collection(db, "conversations", convId, "messages"),
@@ -227,12 +275,15 @@ const toggleTTS = useCallback(() => {
       );
       const snapshot = await getDocs(q);
       const loadedMessages = snapshot.docs.map((doc) => doc.data());
-      
+
       if (loadedMessages.length > 0) {
         setMessages(loadedMessages);
       } else {
         setMessages([
-          { from: "bot", text: "Bonjour 👋 Je suis la version streamée de ton assistant intelligent." },
+          {
+            from: "bot",
+            text: "Bonjour 👋 Je suis ton assistant intelligent. Comment puis-je t'aider aujourd'hui ?",
+          },
         ]);
       }
     } catch (error) {
@@ -240,10 +291,12 @@ const toggleTTS = useCallback(() => {
     }
   }
 
-  // 📋 Charge la liste des conversations
   async function loadConversations() {
     try {
-      const q = query(collection(db, "conversations"), orderBy("createdAt", "desc"));
+      const q = query(
+        collection(db, "conversations"),
+        orderBy("createdAt", "desc")
+      );
       const snapshot = await getDocs(q);
       const convs = snapshot.docs
         .map((doc) => ({ id: doc.id, ...doc.data() }))
@@ -254,7 +307,6 @@ const toggleTTS = useCallback(() => {
     }
   }
 
-  // 🆕 Crée une nouvelle conversation
   async function startNewConversation() {
     try {
       const convRef = doc(collection(db, "conversations"));
@@ -262,22 +314,18 @@ const toggleTTS = useCallback(() => {
         title: "Nouvelle conversation",
         createdAt: serverTimestamp(),
       });
-
-      console.log("✅ Nouvelle conversation créée:", convRef.id);
-      
-      // 🚀 Redirige vers la nouvelle conversation
       navigate(`/stream/${convRef.id}`);
-      
-      // Recharge la liste
       await loadConversations();
+      setIsSidebarOpen(false); // Ferme la sidebar sur mobile après création
     } catch (error) {
       console.error("Erreur création conversation:", error);
     }
   }
 
+  // ============================================
+  // HANDLERS
+  // ============================================
 
-
-  // 🎤 Gestion de l'enregistrement vocal
   const handleMicClick = useCallback(async () => {
     if (isRecording) {
       mediaRecorderRef.current?.stop();
@@ -296,7 +344,9 @@ const toggleTTS = useCallback(() => {
       };
 
       mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+        const audioBlob = new Blob(audioChunksRef.current, {
+          type: "audio/webm",
+        });
         stream.getTracks().forEach((track) => track.stop());
 
         const formData = new FormData();
@@ -305,29 +355,23 @@ const toggleTTS = useCallback(() => {
         formData.append("language", "fr");
 
         try {
-          const response = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
-            method: "POST",
-            headers: { Authorization: `Bearer ${VITE_GROQ_API_KEY}` },
-            body: formData,
-          });
+          const response = await fetch(
+            "https://api.groq.com/openai/v1/audio/transcriptions",
+            {
+              method: "POST",
+              headers: { Authorization: `Bearer ${VITE_GROQ_API_KEY}` },
+              body: formData,
+            }
+          );
 
           if (!response.ok) throw new Error("Erreur lors de la transcription");
 
-          // const data = await response.json();
-          // const transcribedText = data.text || "";
-          // setNewMessage(transcribedText);
-
-
           const data = await response.json();
-const transcribedText = data.text?.trim();
+          const transcribedText = data.text?.trim();
 
-if (transcribedText) {
-  console.log("🎤 Transcription terminée :", transcribedText);
-  await handleStreamCall(transcribedText); // envoi direct au LLM
-} else {
-  console.warn("⚠️ Aucune transcription détectée.");
-}
-
+          if (transcribedText) {
+            await handleStreamCall(transcribedText);
+          }
         } catch (error) {
           console.error("Erreur transcription:", error);
         }
@@ -341,7 +385,6 @@ if (transcribedText) {
     }
   }, [isRecording]);
 
-  // 🖼️ Gestion de l'upload d'image
   const handleImageUpload = useCallback((e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -351,8 +394,21 @@ if (transcribedText) {
     reader.readAsDataURL(file);
   }, []);
 
-  const [isWebSearchEnabled, setIsWebSearchEnabled] = useState(false);
+  const handlePasteInInput = useCallback((e) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
 
+    for (const item of items) {
+      if (item.type.indexOf("image") !== -1) {
+        e.preventDefault();
+        const blob = item.getAsFile();
+        const reader = new FileReader();
+        reader.onload = () => setSelectedImage(reader.result);
+        reader.readAsDataURL(blob);
+        return;
+      }
+    }
+  }, []);
 
   const handleStreamCall = useCallback(
     async (userMessage) => {
@@ -360,89 +416,95 @@ if (transcribedText) {
         console.error("❌ Pas d'ID de conversation active");
         return;
       }
-  
+
       const messageToSend = userMessage.trim();
       if (!messageToSend && !selectedImage) return;
-  
+
       stopFlagRef.current = false;
-  
-      // Ajoute le message utilisateur
+
       addMessage(messageToSend, "user");
       await saveMessage("user", messageToSend, conversationId);
-  
-      // Met à jour le titre si c'est le premier message
-      const firstUserMessage = messages.filter(m => m.from === "user").length === 0;
+
+      const firstUserMessage =
+        messages.filter((m) => m.from === "user").length === 0;
       if (firstUserMessage) {
-        const shortTitle = messageToSend.slice(0, 40) || "Nouvelle conversation";
+        const shortTitle =
+          messageToSend.slice(0, 40) || "Nouvelle conversation";
         await updateConversationTitle(conversationId, shortTitle);
         await loadConversations();
       }
-  
+
       setIsBotLoading(true);
-  
-      // 🔍 SI LA CHECKBOX EST COCHÉE → RECHERCHE WEB
+
+      // 🔍 RECHERCHE WEB
       if (isWebSearchEnabled) {
         try {
-          // 1️⃣ Recherche web
           const resp = await fetch(`${API_URL}/api/ollama-web-search`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ query: messageToSend }),
           });
-  
+
           if (!resp.ok) throw new Error("Erreur HTTP Ollama Web Search");
           const data = await resp.json();
-  
+
           if (data.results?.length) {
-            // 2️⃣ Prépare le contexte
             const searchContext = data.results
-              .map((r, idx) => 
-                `[${idx + 1}] ${r.title}\n${r.snippet || r.content || ""}\nSource: ${r.url}`
+              .map(
+                (r, idx) =>
+                  `[${idx + 1}] ${r.title}\n${r.snippet || r.content || ""}\nSource: ${r.url}`
               )
               .join("\n\n");
-  
-            // 3️⃣ Construit l'historique
+
             const history = messages.map((m) => ({
               role: m.from === "user" ? "user" : "assistant",
               content: m.text,
             }));
-  
+
             history.push({
               role: "user",
               content: `Voici les résultats de recherche pour "${messageToSend}":\n\n${searchContext}\n\nPeux-tu me faire une synthèse claire et structurée en français de ces informations ?`,
             });
-  
-            // 4️⃣ Stream la réponse
+
             const llmResponse = await fetch(`${API_URL}/api/qwen-stream`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ messages: history }),
             });
-  
-            if (!llmResponse.ok) throw new Error(`Erreur LLM: ${llmResponse.status}`);
-  
+
+            if (!llmResponse.ok)
+              throw new Error(`Erreur LLM: ${llmResponse.status}`);
+
             const reader = llmResponse.body.getReader();
             const decoder = new TextDecoder("utf-8");
             let accumulatedText = "";
-  
+
             addMessage("", "bot");
-  
+
             while (true) {
               const { value, done } = await reader.read();
               if (done) break;
-  
+
               const chunk = decoder.decode(value, { stream: true });
               accumulatedText += chunk;
-  
+
               setMessages((prev) => {
                 const updated = [...prev];
-                updated[updated.length - 1] = { from: "bot", text: accumulatedText };
+                updated[updated.length - 1] = {
+                  from: "bot",
+                  text: accumulatedText,
+                };
                 return updated;
               });
             }
-  
+
             await saveMessage("bot", accumulatedText, conversationId);
-            await speakTextBySentence(accumulatedText, stopFlagRef, currentAudioRef, isTTSEnabled);
+            await speakTextBySentence(
+              accumulatedText,
+              stopFlagRef,
+              currentAudioRef,
+              isTTSEnabled
+            );
           } else {
             const noResult = "Aucun résultat trouvé 🧐";
             addMessage(noResult, "bot");
@@ -454,56 +516,60 @@ if (transcribedText) {
         } finally {
           setIsBotLoading(false);
         }
-        return; // Arrête ici si recherche web
+        return;
       }
-  
-      // ⚡ SINON → ENVOI NORMAL
+
+      // ⚡ ENVOI NORMAL
       const history = messages.map((m) => ({
         role: m.from === "user" ? "user" : "assistant",
         content: m.text,
       }));
       history.push({ role: "user", content: messageToSend });
-      
+
       const requestBody = selectedImage
         ? { messages: history, image: selectedImage }
         : { messages: history };
-  
+
       if (selectedImage) {
-        requestBody.image = selectedImage;
         setSelectedImage(null);
       }
-  
+
       try {
         const response = await fetch(`${API_URL}/api/qwen-stream`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(requestBody),
         });
-  
+
         if (!response.ok) throw new Error(`Erreur HTTP: ${response.status}`);
-  
+
         const reader = response.body.getReader();
         const decoder = new TextDecoder("utf-8");
         let accumulatedText = "";
-  
+
         addMessage("", "bot");
-  
+
         while (true) {
           const { value, done } = await reader.read();
           if (done) break;
-  
+
           const chunk = decoder.decode(value, { stream: true });
           accumulatedText += chunk;
-  
+
           setMessages((prev) => {
             const updated = [...prev];
             updated[updated.length - 1] = { from: "bot", text: accumulatedText };
             return updated;
           });
         }
-  
+
         await saveMessage("bot", accumulatedText, conversationId);
-        await speakTextBySentence(accumulatedText, stopFlagRef, currentAudioRef, isTTSEnabled);
+        await speakTextBySentence(
+          accumulatedText,
+          stopFlagRef,
+          currentAudioRef,
+          isTTSEnabled
+        );
       } catch (error) {
         console.error("❌ Erreur streaming:", error);
         addMessage("Erreur lors de la récupération de la réponse.", "bot");
@@ -511,39 +577,15 @@ if (transcribedText) {
         setIsBotLoading(false);
       }
     },
-    [conversationId, messages, addMessage, selectedImage, isTTSEnabled, isWebSearchEnabled]
+    [
+      conversationId,
+      messages,
+      addMessage,
+      selectedImage,
+      isTTSEnabled,
+      isWebSearchEnabled,
+    ]
   );
- 
-
-
-  // 📏 Vérifie si l'utilisateur est proche du bas
-const handleScroll = useCallback(() => {
-    const container = chatContainerRef.current;
-    if (!container) return;
-  
-    const distanceFromBottom =
-      container.scrollHeight - container.scrollTop - container.clientHeight;
-  
-    // Si l'utilisateur est à moins de 150px du bas, on considère qu'il "suit" la conversation
-    setIsUserNearBottom(distanceFromBottom < 150);
-  }, []);
-  useEffect(() => {
-    const container = chatContainerRef.current;
-    if (!container) return;
-  
-    container.addEventListener("scroll", handleScroll);
-    return () => container.removeEventListener("scroll", handleScroll);
-  }, [handleScroll]);
-  
-  // Quand un nouveau message arrive…
-  useEffect(() => {
-    if (isUserNearBottom) {
-      chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [messages, isUserNearBottom]);
-    
-
-
 
   const handleSend = useCallback(
     (e) => {
@@ -557,437 +599,488 @@ const handleScroll = useCallback(() => {
     [newMessage, isBotLoading, handleStreamCall, selectedImage]
   );
 
-  const stopTTS = useCallback(() => {
-    stopFlagRef.current = true;
-    if (currentAudioRef.current) {
-      currentAudioRef.current.pause();
-      currentAudioRef.current.currentTime = 0;
-      currentAudioRef.current = null;
-    }
+  // ============================================
+  // EFFECTS
+  // ============================================
+
+  const handleScroll = useCallback(() => {
+    const container = chatContainerRef.current;
+    if (!container) return;
+
+    const distanceFromBottom =
+      container.scrollHeight - container.scrollTop - container.clientHeight;
+    setIsUserNearBottom(distanceFromBottom < 150);
   }, []);
 
-  const handlePasteInInput = useCallback((e) => {
-    const items = e.clipboardData?.items;
-    if (!items) return;
+  useEffect(() => {
+    const container = chatContainerRef.current;
+    if (!container) return;
 
-    for (const item of items) {
-      if (item.type.indexOf("image") !== -1) {
-        e.preventDefault();
-        const blob = item.getAsFile();
-        const reader = new FileReader();
+    container.addEventListener("scroll", handleScroll);
+    return () => container.removeEventListener("scroll", handleScroll);
+  }, [handleScroll]);
 
-        reader.onload = () => {
-          const imageData = reader.result;
-          setSelectedImage(imageData);
-        };
-
-        reader.readAsDataURL(blob);
-        return;
-      }
+  useEffect(() => {
+    if (isUserNearBottom) {
+      chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
-  }, []);
+  }, [messages, isUserNearBottom]);
 
-  // 🎯 EFFET PRINCIPAL : Charge les conversations au montage
   useEffect(() => {
     loadConversations();
   }, []);
 
-  // 🎯 EFFET : Charge les messages quand l'ID change
   useEffect(() => {
     if (conversationId) {
-      console.log("📂 Chargement de la conversation:", conversationId);
       loadMessages(conversationId);
     } else {
-      // Si pas d'ID dans l'URL, on est sur /stream → conversation vide
       setMessages([
-        { from: "bot", text: "Bonjour 👋 Je suis la version streamée de ton assistant intelligent." },
+        {
+          from: "bot",
+          text: "Bonjour 👋 Je suis ton assistant intelligent. Comment puis-je t'aider aujourd'hui ?",
+        },
       ]);
     }
   }, [conversationId]);
 
-  const [searchTerm, setSearchTerm] = useState("");
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [isFullMenuOpen, setIsFullMenuOpen] = useState(false);
-// Avec les autres états
+  // Responsive : ouvrir la sidebar par défaut sur desktop
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 768) {
+        setIsSidebarOpen(true);
+      } else {
+        setIsSidebarOpen(false);
+      }
+    };
 
-const filteredConversations = conversations.filter(conv =>
-    conv.title && conv.title.toLowerCase().includes(searchTerm.toLowerCase())
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  // ============================================
+  // DONNÉES FILTRÉES
+  // ============================================
+
+  const filteredConversations = conversations.filter(
+    (conv) =>
+      conv.title && conv.title.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  function splitIntoSentences(text) {
-    return text
-      .replace(/\s+/g, " ")
-      .match(/[^.!?]+[.!?]+/g) || [text];
-  }
-  async function speakTextBySentence(fullText, stopFlagRef, currentAudioRef, isTTSEnabled) {
-    if (!isTTSEnabled || stopFlagRef.current) return;
-  
-    const clean = cleanForSpeech(fullText);
-    if (!clean) return;
-  
-    const sentences = splitIntoSentences(clean);
-  
-    for (const sentence of sentences) {
-      if (stopFlagRef.current) return;
-  
-      const audioUrl = await generateTTSWithCache(sentence);
-      if (!audioUrl) continue;
-  
-      if (currentAudioRef.current) {
-        currentAudioRef.current.pause();
-        currentAudioRef.current.currentTime = 0;
-        currentAudioRef.current = null;
-      }
-  
-      const audio = new Audio(audioUrl);
-      currentAudioRef.current = audio;
-  
-      // Gestion du stop asynchrone
-      await new Promise((resolve) => {
-        audio.onended = resolve;
-        audio.onerror = resolve;
-  
-        const checkStop = () => {
-          if (stopFlagRef.current) {
-            audio.pause();
-            audio.currentTime = 0;
-            currentAudioRef.current = null;
-            resolve();
-          } else if (!audio.paused) {
-            requestAnimationFrame(checkStop);
-          }
-        };
-  
-        audio.addEventListener("play", () => requestAnimationFrame(checkStop));
-  
-        audio.play().catch(resolve);
-      });
-    }
-  }
-  
-  
-      
-  
-  
-  const handleSearch = () => {
-    if (!searchTerm.trim()) {
-      setFilteredConversations(conversations);
-      return;
-    }
-    const lower = searchTerm.toLowerCase();
-    const filtered = conversations.filter(conv =>
-      conv.title && conv.title.toLowerCase().includes(lower)
+  // ============================================
+  // RENDER
+  // ============================================
+
+  // Écran de déverrouillage audio (iOS)
+  if (!audioUnlocked) {
+    return (
+      <div className="fixed inset-0 bg-gradient-to-br from-indigo-900 via-purple-900 to-indigo-800 flex flex-col items-center justify-center z-50">
+        <div className="text-center px-6">
+          <div className="w-24 h-24 mx-auto mb-6 bg-white/10 rounded-full flex items-center justify-center">
+            <Volume2 className="w-12 h-12 text-white" />
+          </div>
+          <h2 className="text-2xl font-bold text-white mb-3">
+            Activer le son
+          </h2>
+          <p className="text-white/70 mb-8 max-w-xs mx-auto">
+            Pour profiter de l'assistant vocal, active le son de ton appareil
+          </p>
+          <button
+            onClick={handleUnlockAudio}
+            className="px-8 py-4 bg-white text-indigo-900 font-semibold rounded-2xl shadow-lg hover:shadow-xl transition-all hover:scale-105 active:scale-95"
+          >
+            Activer le son 🔊
+          </button>
+        </div>
+      </div>
     );
-    setFilteredConversations(filtered);
-  };
-  
-  
-
-
+  }
 
   return (
-    <div className="bg-white text-[#191970] min-h-screen font-[Cinzel] flex flex-col">
-      <div className="container mx-auto px-4 pt-6 flex flex-col flex-grow">
-        {/* Header */}
-        <header className="fixed top-0 left-0 w-full bg-white border-b shadow-sm z-50">
-  <div className="container mx-auto px-4 py-3 flex justify-between items-center">
-    {/* 🔘 Bouton toggle gauche (sidebar) */}
-    <div className="flex items-center gap-3">
-      <button
-        onClick={() => setIsSidebarOpen((prev) => !prev)}
-        className="bg-gray-200 hover:bg-gray-300 text-[#191970] rounded-full p-2 shadow transition"
-        title={isSidebarOpen ? "Masquer la barre latérale" : "Afficher la barre latérale"}
-      >
-        {isSidebarOpen ? <ChevronLeft className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-      </button>
+    <div className="h-screen flex flex-col bg-gray-50 overflow-hidden">
+      {/* ============================================ */}
+      {/* HEADER */}
+      {/* ============================================ */}
+      <header className="h-14 bg-white border-b border-gray-200 flex items-center justify-between px-4 flex-shrink-0 z-40">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setIsSidebarOpen((prev) => !prev)}
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            {isSidebarOpen ? (
+              <ChevronLeft className="w-5 h-5 text-gray-600" />
+            ) : (
+              <Menu className="w-5 h-5 text-gray-600" />
+            )}
+          </button>
+          <h1 className="text-lg font-semibold text-gray-800 hidden sm:block">
+            Assistant Intelligent
+          </h1>
+        </div>
 
-      <h1 className="text-lg font-semibold text-[#191970]">
-        Assistant Vocal Intelligent
-      </h1>
-    </div>
+        <div className="flex items-center gap-2">
+          <div className="hidden sm:flex items-center gap-2 text-xs text-gray-500 mr-2">
+            <SignalHigh className="w-4 h-4" />
+            <Wifi className="w-4 h-4" />
+            <span>77%</span>
+            <BatteryFull className="w-4 h-4" />
+          </div>
+          <button
+            onClick={() => setIsFullMenuOpen(true)}
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            <MoreVertical className="w-5 h-5 text-gray-600" />
+          </button>
+        </div>
+      </header>
 
+      {/* ============================================ */}
+      {/* MAIN CONTAINER */}
+      {/* ============================================ */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* ============================================ */}
+        {/* SIDEBAR */}
+        {/* ============================================ */}
+        {/* Overlay mobile */}
+        {isSidebarOpen && (
+          <div
+            className="fixed inset-0 bg-black/50 z-30 md:hidden"
+            onClick={() => setIsSidebarOpen(false)}
+          />
+        )}
 
-    {/* ⚙️ Menu à droite */}
-    <div className="flex items-center gap-3">
-      <div className="hidden sm:flex items-center space-x-2 text-sm text-[#191970]">
-        <SignalHigh className="w-4 h-4" />
-        <Wifi className="w-4 h-4" />
-        <span>77%</span>
-        <BatteryFull className="w-4 h-4" />
-      </div>
-
-      {/* bouton menu utilisateur */}
-      <button
-  onClick={() => setIsFullMenuOpen(true)}
-  className="bg-gray-200 hover:bg-gray-300 text-[#191970] rounded-full p-2 shadow transition"
-  title="Ouvrir le menu principal"
->
-  <MoreVertical className="w-5 h-5" />
-</button>
-
-    </div>
-  </div>
-</header>
-{isFullMenuOpen && (
-  <div className="fixed inset-0 bg-white bg-opacity-95 backdrop-blur-sm z-[9999] flex flex-col items-center justify-center animate-fadeIn">
-    {/* Bouton fermer */}
-    <button
-      onClick={() => setIsFullMenuOpen(false)}
-      className="absolute top-6 right-6 text-[#191970] hover:text-blue-900 transition text-3xl font-bold"
-      title="Fermer le menu"
-    >
-      ✖️
-    </button>
-
-    {/* Liens du menu */}
-    <nav className="flex flex-col items-center space-y-8 text-2xl text-[#191970] font-semibold">
-      <Link
-        to="/"
-        onClick={() => setIsFullMenuOpen(false)}
-        className="hover:text-blue-700 transition"
-      >
-        💬 Chat
-      </Link>
-      <Link
-        to="/stream"
-        onClick={() => setIsFullMenuOpen(false)}
-        className="hover:text-blue-700 transition"
-      >
-        ⚡ Stream
-      </Link>
-      <Link
-        to="/voice"
-        onClick={() => setIsFullMenuOpen(false)}
-        className="hover:text-blue-700 transition"
-      >
-        🎙️ Vocal
-      </Link>
-
-      <div className="w-16 h-[2px] bg-[#191970] my-4" />
-
-      <Link
-        to="/parametres"
-        onClick={() => setIsFullMenuOpen(false)}
-        className="hover:text-blue-700 transition"
-      >
-        ⚙️ Paramètres
-      </Link>
-      <Link
-        to="/profil"
-        onClick={() => setIsFullMenuOpen(false)}
-        className="hover:text-blue-700 transition"
-      >
-        👤 Profil
-      </Link>
-      <Link
-        to="/aide"
-        onClick={() => setIsFullMenuOpen(false)}
-        className="hover:text-blue-700 transition"
-      >
-        ❓ Aide
-      </Link>
-    </nav>
-  </div>
-)}
-
-
-
-        {/* 💬 Contenu principal : Sidebar + Chat */}
-        <div className="flex h-[calc(100vh-60px)] mt-[60px]">
-  {/* 🧭 Sidebar gauche */}
-  <aside
-    className={`fixed top-[60px] left-0 h-[calc(100vh-60px)] bg-gray-50 border-r border-gray-200 p-4 flex-col transition-all duration-300 ease-in-out
-      ${isSidebarOpen ? "w-64 opacity-100" : "w-0 opacity-0 overflow-hidden"}`}
-  >
-    <button
-      onClick={startNewConversation}
-      className="mb-4 bg-blue-500 text-white py-2 rounded-lg shadow hover:bg-blue-600 transition"
-    >
-      + Nouvelle conversation
-    </button>
-      {/* bouton toggle */}
-      
-    <input
-      type="text"
-      placeholder="Rechercher une conversation..."
-      className="w-full p-2 rounded-md border border-gray-300 focus:outline-none focus:ring"
-      value={searchTerm}
-      onChange={(e) => setSearchTerm(e.target.value)}
-    />
-
-    <div className="overflow-y-auto flex-1 mt-3">
-      {filteredConversations.map((conv) => (
-        <Link
-          key={conv.id}
-          to={`/stream/${conv.id}`}
-          className={`block p-2 mb-2 rounded-lg cursor-pointer ${
-            conv.id === conversationId
-              ? "bg-blue-100 border-l-4 border-blue-500"
-              : "hover:bg-gray-100"
-          }`}
+        {/* Sidebar */}
+        <aside
+          className={`
+            fixed md:relative z-40 md:z-auto
+            h-[calc(100vh-56px)] w-72 bg-white border-r border-gray-200
+            flex flex-col
+            transition-transform duration-300 ease-in-out
+            ${isSidebarOpen ? "translate-x-0" : "-translate-x-full md:hidden"}
+          `}
         >
-          <p className="text-sm text-gray-800 truncate">{conv.title || "Sans titre"}</p>
-        </Link>
-      ))}
-    </div>
-  </aside>
-{/* 🧠 Zone du chat - CORRECTION */}
-<section
-  ref={chatContainerRef}  // 👈 Ajoute la ref ici
-  className={`flex-1 flex flex-col bg-white transition-all duration-300 ${
-    isSidebarOpen ? "ml-64" : "ml-0"
-  }`}
-  style={{ height: 'calc(100vh - 60px)' }} // 👈 Hauteur fixe
->
-  {/* contenu du chat */}
-  {/* contenu du chat */}
-<main className="flex-grow overflow-y-auto space-y-4 text-lg p-2 sm:p-6">
-  {messages.map((msg, idx) => (
-    <div
-      key={idx}
-      className={`p-3 sm:p-4 rounded-xl w-full sm:max-w-[85%] border shadow-sm ${
-        msg.from === "user"
-          ? "sm:ml-auto bg-[#191970] text-white"
-          : "sm:mr-auto bg-gray-100 text-[#191970]"
-      }`}
-    >
-      <div className="markdown-container">
-        <ReactMarkdown>{msg.text}</ReactMarkdown>
-      </div>
-    </div>
-  ))}
-  <div ref={chatEndRef} />
-</main>
-
-
-</section>
-</div>
-  {/* Footer - CORRECTION */}
-  <footer className="w-full py-4 bg-white border-t shadow-lg">
-  {selectedImage && (
-    <div className="mb-4 flex justify-center px-4">
-      <div className="relative inline-block">
-        <img
-          src={selectedImage}
-          alt="Prévisualisation"
-          className="w-40 h-auto rounded-xl border shadow-md"
-        />
-        <button
-          onClick={() => setSelectedImage(null)}
-          className="absolute top-1 right-1 bg-black bg-opacity-60 text-white rounded-full p-1 hover:bg-opacity-80"
-          title="Supprimer l'image"
-        >
-          <X size={14} />
-        </button>
-      </div>
-    </div>
-  )}
-
-  {/* 🆕 CHECKBOX RECHERCHE WEB */}
-  <div className="flex justify-center mb-3">
-    <label className="flex items-center gap-2 cursor-pointer text-sm text-[#191970]">
-      <input
-        type="checkbox"
-        checked={isWebSearchEnabled}
-        onChange={(e) => setIsWebSearchEnabled(e.target.checked)}
-        className="w-4 h-4 accent-green-600 cursor-pointer"
-      />
-      <span className="font-medium">🌐 Recherche sur le Web</span>
-    </label>
-  </div>
-
-  <div className="flex justify-center h-[100px] items-center space-x-6 px-4">
-    <label className="bg-gray-200 w-12 h-12 rounded-full flex items-center justify-center shadow-lg text-[#191970] hover:bg-gray-300 cursor-pointer">
-      <Plus className="w-6 h-6" />
-      <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
-    </label>
-
-    <button
-      onClick={handleMicClick}
-      className={`w-32 h-20 rounded-full flex items-center justify-center shadow-lg text-white transition-colors ${
-        isRecording ? "bg-red-500 animate-pulse" : "bg-[#191970] hover:bg-blue-900"
-      }`}
-    >
-      <Mic className="w-10 h-10" />
-    </button>
-
-    <button
-      onClick={toggleTTS}
-      className={`w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-colors ${
-        isTTSEnabled 
-          ? "bg-[#191970] text-white hover:bg-blue-900" 
-          : "bg-gray-300 text-gray-600 hover:bg-gray-400"
-      }`}
-      title={isTTSEnabled ? "Désactiver le text-to-speech" : "Activer le text-to-speech"}
-    >
-      {isTTSEnabled ? <Volume2 className="w-6 h-6" /> : <VolumeX className="w-6 h-6" />}
-    </button>
-
-    <button
-      onClick={stopTTS}
-      className="bg-gray-200 w-12 h-12 rounded-full flex items-center justify-center shadow-lg text-[#191970] hover:bg-gray-300"
-      title="Arrêter la lecture en cours"
-    >
-      <X className="w-6 h-6" />
-    </button>
-  </div>
-
-  <form onSubmit={handleSend} className="flex items-center gap-2 px-4">
-    <input
-      type="text"
-      value={newMessage}
-      onChange={(e) => setNewMessage(e.target.value)}
-      onPaste={handlePasteInInput}
-      placeholder="Parle ou écris un message..."
-      className="flex-grow border border-gray-400 rounded-lg px-3 py-2 bg-white text-[#191970] focus:outline-none focus:ring-2 focus:ring-[#191970]"
-    />
-    
-    <button
-      type="submit"
-      className="bg-[#191970] text-white px-4 py-2 rounded-lg hover:bg-blue-900 transition-colors disabled:opacity-50"
-      disabled={isBotLoading}
-    >
-      <Send className="w-5 h-5" />
-    </button>
-  </form>
-</footer>
-
-
-        {!audioUnlocked && (
-          <div className="fixed inset-0 bg-white flex flex-col items-center justify-center z-50">
-            <p className="text-lg text-[#191970] mb-4 text-center">
-              🔊 Active le son pour entendre la voix de l'assistant
-            </p>
+          {/* Bouton nouvelle conversation */}
+          <div className="p-4 border-b border-gray-100">
             <button
-              onClick={handleUnlockAudio}
-              className="px-6 py-3 bg-[#191970] text-white rounded-full shadow-lg hover:bg-blue-900 transition-transform hover:scale-105"
+              onClick={startNewConversation}
+              className="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-medium rounded-xl shadow-md hover:shadow-lg transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
             >
-              Activer le son
+              <Plus className="w-5 h-5" />
+              Nouvelle conversation
             </button>
           </div>
-        )}
 
-        {/* Image sélectionnée */}
-        {selectedImage && (
-          <div className="flex justify-end mb-4">
+          {/* Recherche */}
+          <div className="px-4 py-3">
             <div className="relative">
-              <img
-                src={selectedImage}
-                alt="image"
-                className="w-48 h-auto rounded-lg shadow-md border"
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Rechercher..."
+                className="w-full pl-10 pr-4 py-2.5 bg-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
               />
-              <button
-                onClick={() => setSelectedImage(null)}
-                className="absolute top-1 right-1 bg-black bg-opacity-50 text-white rounded-full p-1"
-              >
-                <X size={14} />
-              </button>
             </div>
           </div>
-        )}
 
-     
+          {/* Liste des conversations */}
+          <div className="flex-1 overflow-y-auto px-2 pb-4">
+            {filteredConversations.length === 0 ? (
+              <p className="text-center text-gray-400 text-sm py-8">
+                Aucune conversation
+              </p>
+            ) : (
+              filteredConversations.map((conv) => (
+                <Link
+                  key={conv.id}
+                  to={`/stream/${conv.id}`}
+                  onClick={() => {
+                    if (window.innerWidth < 768) setIsSidebarOpen(false);
+                  }}
+                  className={`
+                    block px-4 py-3 mb-1 rounded-xl transition-all
+                    ${
+                      conv.id === conversationId
+                        ? "bg-indigo-50 border-l-4 border-indigo-500"
+                        : "hover:bg-gray-50"
+                    }
+                  `}
+                >
+                  <p className="text-sm text-gray-700 truncate font-medium">
+                    {conv.title || "Sans titre"}
+                  </p>
+                </Link>
+              ))
+            )}
+          </div>
+        </aside>
+
+        {/* ============================================ */}
+        {/* ZONE CHAT */}
+        {/* ============================================ */}
+        <main className="flex-1 flex flex-col min-w-0">
+          {/* Messages */}
+          <div
+            ref={chatContainerRef}
+            className="flex-1 overflow-y-auto px-4 py-6"
+          >
+            <div className="max-w-3xl mx-auto space-y-4">
+              {messages.map((msg, idx) => (
+                <div
+                  key={idx}
+                  className={`flex ${msg.from === "user" ? "justify-end" : "justify-start"}`}
+                >
+                  <div
+                    className={`
+                      max-w-[85%] sm:max-w-[75%] rounded-2xl px-4 py-3 shadow-sm
+                      ${
+                        msg.from === "user"
+                          ? "bg-gradient-to-br from-indigo-600 to-purple-600 text-white"
+                          : "bg-white text-gray-800 border border-gray-100"
+                      }
+                    `}
+                  >
+                    {/* Markdown avec styles personnalisés */}
+                    <div
+                      className={`
+                        prose prose-sm max-w-none
+                        ${msg.from === "user" ? "prose-invert" : ""}
+                        [&_h1]:text-xl [&_h1]:font-bold [&_h1]:mb-3 [&_h1]:mt-4 [&_h1]:text-indigo-700
+                        [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:mb-2 [&_h2]:mt-3 [&_h2]:text-indigo-600
+                        [&_h3]:text-base [&_h3]:font-semibold [&_h3]:mb-2 [&_h3]:mt-2 [&_h3]:text-indigo-500
+                        [&_p]:mb-2 [&_p]:leading-relaxed
+                        [&_ul]:my-2 [&_ul]:pl-4 [&_ul]:space-y-1
+                        [&_ol]:my-2 [&_ol]:pl-4 [&_ol]:space-y-1
+                        [&_li]:text-sm
+                        [&_code]:bg-gray-100 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-xs [&_code]:font-mono [&_code]:text-pink-600
+                        [&_pre]:bg-gray-900 [&_pre]:text-gray-100 [&_pre]:p-4 [&_pre]:rounded-xl [&_pre]:overflow-x-auto [&_pre]:my-3
+                        [&_pre_code]:bg-transparent [&_pre_code]:text-gray-100 [&_pre_code]:p-0
+                        [&_blockquote]:border-l-4 [&_blockquote]:border-indigo-400 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-gray-600 [&_blockquote]:my-3
+                        [&_a]:text-indigo-600 [&_a]:underline [&_a]:hover:text-indigo-800
+                        [&_strong]:font-semibold
+                        [&_em]:italic
+                        [&_hr]:my-4 [&_hr]:border-gray-200
+                        [&_table]:w-full [&_table]:border-collapse [&_table]:my-3
+                        [&_th]:bg-gray-100 [&_th]:px-3 [&_th]:py-2 [&_th]:text-left [&_th]:text-sm [&_th]:font-semibold [&_th]:border [&_th]:border-gray-200
+                        [&_td]:px-3 [&_td]:py-2 [&_td]:text-sm [&_td]:border [&_td]:border-gray-200
+                        ${msg.from === "user" ? "[&_code]:bg-white/20 [&_code]:text-white" : ""}
+                      `}
+                    >
+                      <ReactMarkdown>{msg.text}</ReactMarkdown>
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              {/* Indicateur de chargement */}
+              {isBotLoading && (
+                <div className="flex justify-start">
+                  <div className="bg-white border border-gray-100 rounded-2xl px-4 py-3 shadow-sm">
+                    <div className="flex gap-1.5">
+                      <span className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" />
+                      <span
+                        className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce"
+                        style={{ animationDelay: "0.1s" }}
+                      />
+                      <span
+                        className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce"
+                        style={{ animationDelay: "0.2s" }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div ref={chatEndRef} />
+            </div>
+          </div>
+
+          {/* ============================================ */}
+          {/* FOOTER / INPUT */}
+          {/* ============================================ */}
+          <div className="border-t border-gray-200 bg-white px-4 py-4 flex-shrink-0">
+            <div className="max-w-3xl mx-auto">
+              {/* Image preview */}
+              {selectedImage && (
+                <div className="mb-3 flex justify-start">
+                  <div className="relative inline-block">
+                    <img
+                      src={selectedImage}
+                      alt="Prévisualisation"
+                      className="h-20 w-auto rounded-xl border border-gray-200 shadow-sm"
+                    />
+                    <button
+                      onClick={() => setSelectedImage(null)}
+                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition-colors"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Options */}
+              <div className="flex items-center justify-between mb-3">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={isWebSearchEnabled}
+                    onChange={(e) => setIsWebSearchEnabled(e.target.checked)}
+                    className="w-4 h-4 accent-indigo-600 rounded cursor-pointer"
+                  />
+                  <span className="text-sm text-gray-600 font-medium">
+                    🌐 Recherche web
+                  </span>
+                </label>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={toggleTTS}
+                    className={`p-2 rounded-lg transition-colors ${
+                      isTTSEnabled
+                        ? "bg-indigo-100 text-indigo-600"
+                        : "bg-gray-100 text-gray-400"
+                    }`}
+                    title={isTTSEnabled ? "Désactiver TTS" : "Activer TTS"}
+                  >
+                    {isTTSEnabled ? (
+                      <Volume2 className="w-5 h-5" />
+                    ) : (
+                      <VolumeX className="w-5 h-5" />
+                    )}
+                  </button>
+                  <button
+                    onClick={stopTTS}
+                    className="p-2 rounded-lg bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors"
+                    title="Arrêter la lecture"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Input zone */}
+              <form onSubmit={handleSend} className="flex items-end gap-3">
+                {/* Upload image */}
+                <label className="p-3 bg-gray-100 hover:bg-gray-200 rounded-xl cursor-pointer transition-colors flex-shrink-0">
+                  <Plus className="w-5 h-5 text-gray-600" />
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleImageUpload}
+                  />
+                </label>
+
+                {/* Text input */}
+                <div className="flex-1 relative">
+                  <input
+                    type="text"
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    onPaste={handlePasteInInput}
+                    placeholder="Écris ton message..."
+                    className="w-full px-4 py-3 bg-gray-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all pr-12"
+                  />
+                </div>
+
+                {/* Mic button */}
+                <button
+                  type="button"
+                  onClick={handleMicClick}
+                  className={`p-3 rounded-xl transition-all flex-shrink-0 ${
+                    isRecording
+                      ? "bg-red-500 text-white animate-pulse"
+                      : "bg-gray-100 hover:bg-gray-200 text-gray-600"
+                  }`}
+                >
+                  <Mic className="w-5 h-5" />
+                </button>
+
+                {/* Send button */}
+                <button
+                  type="submit"
+                  disabled={isBotLoading || (!newMessage.trim() && !selectedImage)}
+                  className="p-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+                >
+                  <Send className="w-5 h-5" />
+                </button>
+              </form>
+            </div>
+          </div>
+        </main>
       </div>
+
+      {/* ============================================ */}
+      {/* MENU PLEIN ÉCRAN */}
+      {/* ============================================ */}
+      {isFullMenuOpen && (
+        <div className="fixed inset-0 bg-white z-50 flex flex-col animate-in fade-in duration-200">
+          <div className="flex justify-end p-4">
+            <button
+              onClick={() => setIsFullMenuOpen(false)}
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <X className="w-6 h-6 text-gray-600" />
+            </button>
+          </div>
+
+          <nav className="flex-1 flex flex-col items-center justify-center gap-6">
+            <Link
+              to="/"
+              onClick={() => setIsFullMenuOpen(false)}
+              className="flex items-center gap-3 text-xl text-gray-700 hover:text-indigo-600 transition-colors"
+            >
+              <MessageSquare className="w-6 h-6" />
+              Chat
+            </Link>
+            <Link
+              to="/stream"
+              onClick={() => setIsFullMenuOpen(false)}
+              className="flex items-center gap-3 text-xl text-gray-700 hover:text-indigo-600 transition-colors"
+            >
+              <Zap className="w-6 h-6" />
+              Stream
+            </Link>
+            <Link
+              to="/voice"
+              onClick={() => setIsFullMenuOpen(false)}
+              className="flex items-center gap-3 text-xl text-gray-700 hover:text-indigo-600 transition-colors"
+            >
+              <Mic2 className="w-6 h-6" />
+              Vocal
+            </Link>
+
+            <div className="w-16 h-px bg-gray-200 my-4" />
+
+            <Link
+              to="/parametres"
+              onClick={() => setIsFullMenuOpen(false)}
+              className="flex items-center gap-3 text-xl text-gray-700 hover:text-indigo-600 transition-colors"
+            >
+              <Settings className="w-6 h-6" />
+              Paramètres
+            </Link>
+            <Link
+              to="/profil"
+              onClick={() => setIsFullMenuOpen(false)}
+              className="flex items-center gap-3 text-xl text-gray-700 hover:text-indigo-600 transition-colors"
+            >
+              <User className="w-6 h-6" />
+              Profil
+            </Link>
+            <Link
+              to="/aide"
+              onClick={() => setIsFullMenuOpen(false)}
+              className="flex items-center gap-3 text-xl text-gray-700 hover:text-indigo-600 transition-colors"
+            >
+              <HelpCircle className="w-6 h-6" />
+              Aide
+            </Link>
+          </nav>
+        </div>
+      )}
     </div>
   );
 }
