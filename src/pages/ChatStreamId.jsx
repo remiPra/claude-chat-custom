@@ -674,7 +674,7 @@ export default function ChatStreamId() {
   // Écran de déverrouillage audio (iOS)
   if (!audioUnlocked) {
     return (
-      <div className="fixed inset-0 bg-gradient-to-br from-indigo-900 via-purple-900 to-indigo-800 flex flex-col items-center justify-center z-50">
+      <div className="fixed inset-0 bg-[#191970] flex flex-col items-center justify-center z-50">
         <div className="text-center px-6">
           <div className="w-24 h-24 mx-auto mb-6 bg-white/10 rounded-full flex items-center justify-center">
             <Volume2 className="w-12 h-12 text-white" />
@@ -687,7 +687,7 @@ export default function ChatStreamId() {
           </p>
           <button
             onClick={handleUnlockAudio}
-            className="px-8 py-4 bg-white text-indigo-900 font-semibold rounded-2xl shadow-lg hover:shadow-xl transition-all hover:scale-105 active:scale-95"
+            className="px-8 py-4 bg-white text-[#191970] font-semibold rounded-2xl shadow-lg hover:shadow-xl transition-all hover:scale-105 active:scale-95"
           >
             Activer le son 🔊
           </button>
@@ -763,7 +763,7 @@ export default function ChatStreamId() {
           <div className="p-4 border-b border-gray-100">
             <button
               onClick={startNewConversation}
-              className="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-medium rounded-xl shadow-md hover:shadow-lg transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
+              className="w-full py-3 bg-[#191970] text-white font-medium rounded-xl shadow-md hover:shadow-lg transition-all hover:scale-[1.02] active:scale-[0.98] hover:bg-[#252580] flex items-center justify-center gap-2"
             >
               <Plus className="w-5 h-5" />
               Nouvelle conversation
@@ -777,7 +777,7 @@ export default function ChatStreamId() {
               <input
                 type="text"
                 placeholder="Rechercher..."
-                className="w-full pl-10 pr-4 py-2.5 bg-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all"
+                className="w-full pl-10 pr-4 py-2.5 bg-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#191970]/50 transition-all"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -802,7 +802,7 @@ export default function ChatStreamId() {
                     block px-4 py-3 mb-1 rounded-xl transition-all
                     ${
                       conv.id === conversationId
-                        ? "bg-indigo-50 border-l-4 border-indigo-500"
+                        ? "bg-[#191970]/10 border-l-4 border-[#191970]"
                         : "hover:bg-gray-50"
                     }
                   `}
@@ -836,7 +836,7 @@ export default function ChatStreamId() {
                       max-w-[85%] sm:max-w-[75%] rounded-2xl px-4 py-3 shadow-sm
                       ${
                         msg.from === "user"
-                          ? "bg-gradient-to-br from-indigo-600 to-purple-600 text-white"
+                          ? "bg-[#191970] text-white"
                           : "bg-white text-gray-800 border border-gray-100"
                       }
                     `}
@@ -846,9 +846,9 @@ export default function ChatStreamId() {
                       className={`
                         prose prose-sm max-w-none
                         ${msg.from === "user" ? "prose-invert" : ""}
-                        [&_h1]:text-xl [&_h1]:font-bold [&_h1]:mb-3 [&_h1]:mt-4 [&_h1]:text-indigo-700
-                        [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:mb-2 [&_h2]:mt-3 [&_h2]:text-indigo-600
-                        [&_h3]:text-base [&_h3]:font-semibold [&_h3]:mb-2 [&_h3]:mt-2 [&_h3]:text-indigo-500
+                        [&_h1]:text-xl [&_h1]:font-bold [&_h1]:mb-3 [&_h1]:mt-4 [&_h1]:text-[#191970]
+                        [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:mb-2 [&_h2]:mt-3 [&_h2]:text-[#191970]
+                        [&_h3]:text-base [&_h3]:font-semibold [&_h3]:mb-2 [&_h3]:mt-2 [&_h3]:text-[#191970]/80
                         [&_p]:mb-2 [&_p]:leading-relaxed
                         [&_ul]:my-2 [&_ul]:pl-4 [&_ul]:space-y-1
                         [&_ol]:my-2 [&_ol]:pl-4 [&_ol]:space-y-1
@@ -856,8 +856,8 @@ export default function ChatStreamId() {
                         [&_code]:bg-gray-100 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-xs [&_code]:font-mono [&_code]:text-pink-600
                         [&_pre]:bg-gray-900 [&_pre]:text-gray-100 [&_pre]:p-4 [&_pre]:rounded-xl [&_pre]:overflow-x-auto [&_pre]:my-3
                         [&_pre_code]:bg-transparent [&_pre_code]:text-gray-100 [&_pre_code]:p-0
-                        [&_blockquote]:border-l-4 [&_blockquote]:border-indigo-400 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-gray-600 [&_blockquote]:my-3
-                        [&_a]:text-indigo-600 [&_a]:underline [&_a]:hover:text-indigo-800
+                        [&_blockquote]:border-l-4 [&_blockquote]:border-[#191970] [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-gray-600 [&_blockquote]:my-3
+                        [&_a]:text-[#191970] [&_a]:underline [&_a]:hover:text-[#252580]
                         [&_strong]:font-semibold
                         [&_em]:italic
                         [&_hr]:my-4 [&_hr]:border-gray-200
@@ -878,13 +878,13 @@ export default function ChatStreamId() {
                 <div className="flex justify-start">
                   <div className="bg-white border border-gray-100 rounded-2xl px-4 py-3 shadow-sm">
                     <div className="flex gap-1.5">
-                      <span className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" />
+                      <span className="w-2 h-2 bg-[#191970] rounded-full animate-bounce" />
                       <span
-                        className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce"
+                        className="w-2 h-2 bg-[#191970] rounded-full animate-bounce"
                         style={{ animationDelay: "0.1s" }}
                       />
                       <span
-                        className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce"
+                        className="w-2 h-2 bg-[#191970] rounded-full animate-bounce"
                         style={{ animationDelay: "0.2s" }}
                       />
                     </div>
@@ -927,7 +927,7 @@ export default function ChatStreamId() {
                     type="checkbox"
                     checked={isWebSearchEnabled}
                     onChange={(e) => setIsWebSearchEnabled(e.target.checked)}
-                    className="w-4 h-4 accent-indigo-600 rounded cursor-pointer"
+                    className="w-4 h-4 accent-[#191970] rounded cursor-pointer"
                   />
                   <span className="text-sm text-gray-600 font-medium">
                     🌐 Recherche web
@@ -939,7 +939,7 @@ export default function ChatStreamId() {
                     onClick={toggleTTS}
                     className={`p-2 rounded-lg transition-colors ${
                       isTTSEnabled
-                        ? "bg-indigo-100 text-indigo-600"
+                        ? "bg-[#191970]/10 text-[#191970]"
                         : "bg-gray-100 text-gray-400"
                     }`}
                     title={isTTSEnabled ? "Désactiver TTS" : "Activer TTS"}
@@ -981,7 +981,7 @@ export default function ChatStreamId() {
                     onChange={(e) => setNewMessage(e.target.value)}
                     onPaste={handlePasteInInput}
                     placeholder="Écris ton message..."
-                    className="w-full px-4 py-3 bg-gray-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all pr-12"
+                    className="w-full px-4 py-3 bg-gray-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#191970]/50 transition-all pr-12"
                   />
                 </div>
 
@@ -1002,7 +1002,7 @@ export default function ChatStreamId() {
                 <button
                   type="submit"
                   disabled={isBotLoading || (!newMessage.trim() && !selectedImage)}
-                  className="p-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+                  className="p-3 bg-[#191970] text-white rounded-xl hover:bg-[#252580] hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
                 >
                   <Send className="w-5 h-5" />
                 </button>
@@ -1030,7 +1030,7 @@ export default function ChatStreamId() {
             <Link
               to="/"
               onClick={() => setIsFullMenuOpen(false)}
-              className="flex items-center gap-3 text-xl text-gray-700 hover:text-indigo-600 transition-colors"
+              className="flex items-center gap-3 text-xl text-gray-700 hover:text-[#191970] transition-colors"
             >
               <MessageSquare className="w-6 h-6" />
               Chat
@@ -1038,7 +1038,7 @@ export default function ChatStreamId() {
             <Link
               to="/stream"
               onClick={() => setIsFullMenuOpen(false)}
-              className="flex items-center gap-3 text-xl text-gray-700 hover:text-indigo-600 transition-colors"
+              className="flex items-center gap-3 text-xl text-gray-700 hover:text-[#191970] transition-colors"
             >
               <Zap className="w-6 h-6" />
               Stream
@@ -1046,7 +1046,7 @@ export default function ChatStreamId() {
             <Link
               to="/voice"
               onClick={() => setIsFullMenuOpen(false)}
-              className="flex items-center gap-3 text-xl text-gray-700 hover:text-indigo-600 transition-colors"
+              className="flex items-center gap-3 text-xl text-gray-700 hover:text-[#191970] transition-colors"
             >
               <Mic2 className="w-6 h-6" />
               Vocal
@@ -1057,7 +1057,7 @@ export default function ChatStreamId() {
             <Link
               to="/parametres"
               onClick={() => setIsFullMenuOpen(false)}
-              className="flex items-center gap-3 text-xl text-gray-700 hover:text-indigo-600 transition-colors"
+              className="flex items-center gap-3 text-xl text-gray-700 hover:text-[#191970] transition-colors"
             >
               <Settings className="w-6 h-6" />
               Paramètres
@@ -1065,7 +1065,7 @@ export default function ChatStreamId() {
             <Link
               to="/profil"
               onClick={() => setIsFullMenuOpen(false)}
-              className="flex items-center gap-3 text-xl text-gray-700 hover:text-indigo-600 transition-colors"
+              className="flex items-center gap-3 text-xl text-gray-700 hover:text-[#191970] transition-colors"
             >
               <User className="w-6 h-6" />
               Profil
@@ -1073,7 +1073,7 @@ export default function ChatStreamId() {
             <Link
               to="/aide"
               onClick={() => setIsFullMenuOpen(false)}
-              className="flex items-center gap-3 text-xl text-gray-700 hover:text-indigo-600 transition-colors"
+              className="flex items-center gap-3 text-xl text-gray-700 hover:text-[#191970] transition-colors"
             >
               <HelpCircle className="w-6 h-6" />
               Aide
