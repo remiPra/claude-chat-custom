@@ -7,6 +7,7 @@ import Login from "./pages/Login"; // 👈 on ajoute la page Login
 import { auth } from "./firebase";
 import { signOut } from "firebase/auth";
 import ChatStreamId from "./pages/ChatStreamId";
+import ChatPodologue from "./pages/ChatPodo";
 const admin = import.meta.env.VITE_ADMIN_EMAIL
 // 🧱 Route protégée
 function PrivateRoute({ children }) {
@@ -63,6 +64,15 @@ export default function App() {
               element={
                 <PrivateRoute>
                   <ChatClassic />
+                </PrivateRoute>
+              }
+            />
+
+<Route
+              path="/podo"
+              element={
+                <PrivateRoute>
+                  <ChatPodologue />
                 </PrivateRoute>
               }
             />
